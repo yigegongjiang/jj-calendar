@@ -30,7 +30,7 @@ struct YearMonth: Comparable {
     }
 }
 
-struct DayInfo {
+struct DayInfo: Equatable {
     let date: Date
     let day: Int
     let month: Int
@@ -61,7 +61,7 @@ enum RowSpan: Int, CaseIterable {
 }
 
 /// 某行内一段横条 (全天 / 跨天事件); 跨行 / 跨月事件每行一段.
-struct BarSlot {
+struct BarSlot: Equatable {
     let event: CalendarEvent
     let startCol: Int
     let endCol: Int
@@ -71,7 +71,7 @@ struct BarSlot {
     let isPast: Bool
 }
 
-struct WeekRow {
+struct WeekRow: Equatable {
     /// 网格格数 (RowSpan.columns); days 可少于此 (月初 / 月末), 余下留空.
     let columns: Int
     /// days[0] 所在列 (首行 = 区间首日的星期列, 其余行 = 0); 列号 = offset + 日下标.
@@ -84,6 +84,15 @@ struct WeekRow {
     let timed: [[CalendarEvent]]
     /// 完整展示本行所需行数 = 各列 (横条 lane + 定时事件) 的最大值.
     let lines: Int
+}
+
+extension WeekRow {
+    /// 某列全部条目: 横条 (按 lane) 在前, 定时按开始时间.
+    func items(at col: Int) -> [CalendarEvent] {
+        guard days.indices.contains(col) else { return [] }
+        let covering = bars.filter { ($0.startCol...$0.endCol).contains(col) }.sorted { $0.lane < $1.lane }
+        return covering.map(\.event) + timed[col]
+    }
 }
 
 enum WeekMetrics {

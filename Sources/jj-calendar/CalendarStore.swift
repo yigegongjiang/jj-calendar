@@ -28,7 +28,7 @@ struct CalendarSummary: Sendable {
 }
 
 /// 日程或提醒事项; 提醒事项: start = 截止时间, 无时刻 -> isAllDay + [当日 0 点, 次日 0 点), 有时刻 -> end = start.
-struct CalendarEvent: Sendable {
+struct CalendarEvent: Sendable, Equatable {
     let title: String
     let start: Date
     let end: Date

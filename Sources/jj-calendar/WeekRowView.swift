@@ -1,23 +1,27 @@
 import AppKit
 
-/// 一行: 日期格 (≤ 7 / 14 个; 区间首日前、末日后留空) + 事件 chip; 容量不足时日期格显示 +N, 悬停列出未显示日程.
+/// 一行: 日期格 (DayCellView; ≤ 7 / 14 个, 区间首日前、末日后留空) + 事件 chip.
+/// 容量不足的列: 末行改为「+N 项」; 点击日期格 / chip / +N -> 当日完整列表 (onSelectDay).
 final class WeekRowView: NSView {
     struct Config: Equatable {
-        let generation: Int
         let typography: Typography
         let capacity: Int
         let monthTint: Bool
     }
 
     private struct Slot {
-        let chip: EventChipView
+        let chip: NSView
         let startCol: Int
         let endCol: Int
         let line: Int
     }
 
+    /// 点击 / AX 按下某列 -> 由 WeekGridView 弹出当日列表, 锚定该日期格.
+    var onSelectDay: ((_ col: Int, _ anchor: NSView) -> Void)?
+
     private var row: WeekRow?
     private var config: Config?
+    private var calendar: Calendar?
     private var dayViews: [DayCellView] = []
     private var slots: [Slot] = []
     /// 本行折叠 (未显示) 的日程格次数.
@@ -38,43 +42,42 @@ final class WeekRowView: NSView {
         true
     }
 
-    /// 数据 / 行高 / 容量变化时才重建 chip; 仅尺寸变化走 layout().
+    /// 内容 / 行高 / 容量变化时才重建 chip (数据刷新时未变的行不重建); 仅尺寸变化走 layout().
     func apply(_ config: Config, row: WeekRow, calendar: Calendar) {
-        guard config != self.config else { return }
+        guard config != self.config || row != self.row || calendar != self.calendar else { return }
         self.config = config
         self.row = row
+        self.calendar = calendar
         let capacity = config.capacity
 
         syncDayViews(count: row.days.count)
         slots.forEach { $0.chip.removeFromSuperview() }
         slots = []
-        var hidden = Array(repeating: [CalendarEvent](), count: row.days.count)
-        for bar in row.bars {
-            if bar.lane < capacity {
-                let chip = EventChipView(
-                    event: bar.event, style: .bar(bar.continued), dimmed: bar.isPast,
-                    typography: config.typography, calendar: calendar
-                )
-                slots.append(Slot(chip: chip, startCol: bar.startCol, endCol: bar.endCol, line: bar.lane))
-            } else {
-                for col in bar.startCol...bar.endCol {
-                    hidden[col].append(bar.event)
-                }
-            }
+        // 每列独立: 超出容量 -> 可见行数 = 容量 - 1, 末行留给「+N 项」.
+        let visible = row.days.indices.map { col in
+            row.lanesPerColumn[col] + row.timed[col].count > capacity ? max(0, capacity - 1) : capacity
         }
+        var hidden = Array(repeating: [CalendarEvent](), count: row.days.count)
+        placeBars(row.bars, visible: visible, hidden: &hidden, typography: config.typography, calendar: calendar)
         for (col, events) in row.timed.enumerated() {
             for (offset, event) in events.enumerated() {
                 let line = row.lanesPerColumn[col] + offset
-                if line < capacity {
-                    let chip = EventChipView(
-                        event: event, style: .timed, dimmed: row.days[col].isPast,
-                        typography: config.typography, calendar: calendar
-                    )
-                    slots.append(Slot(chip: chip, startCol: col, endCol: col, line: line))
-                } else {
+                guard line < visible[col] else {
                     hidden[col].append(event)
+                    continue
                 }
+                let chip = EventChipView(
+                    event: event, style: .timed, dimmed: row.days[col].isPast,
+                    typography: config.typography, calendar: calendar
+                )
+                chip.onPress = { [weak self] in self?.select(col) }
+                slots.append(Slot(chip: chip, startCol: col, endCol: col, line: line))
             }
+        }
+        for col in row.days.indices where !hidden[col].isEmpty && visible[col] < capacity {
+            let more = MoreChipView(hidden: hidden[col], typography: config.typography, calendar: calendar)
+            more.onPress = { [weak self] in self?.select(col) }
+            slots.append(Slot(chip: more, startCol: col, endCol: col, line: visible[col]))
         }
         slots.forEach { addSubview($0.chip) }
         hiddenTotal = hidden.reduce(0) { $0 + $1.count }
@@ -83,15 +86,63 @@ final class WeekRowView: NSView {
             let count = row.timed[col].count + row.bars.count { ($0.startCol...$0.endCol).contains(col) }
             // 首行首日前为空白: 首日补左边线.
             dayViews[col].drawsLeadingEdge = col == 0 && row.offset > 0
-            dayViews[col].configure(
-                day, eventCount: count, hidden: hidden[col], config: config, calendar: calendar
-            )
+            dayViews[col].onPress = { [weak self] in self?.select(col) }
+            dayViews[col].configure(day, eventCount: count, hidden: hidden[col].count, config: config)
         }
         if let first = row.days.first, let last = row.days.last {
             setAccessibilityLabel("\(EventText.day(first.date)) – \(EventText.day(last.date))")
         }
         needsLayout = true
         needsDisplay = true
+    }
+
+    /// 横条只画在仍有空间 (lane < 该列可见行数) 的连续列段上; 其余列计入该列折叠.
+    private func placeBars(
+        _ bars: [BarSlot], visible: [Int], hidden: inout [[CalendarEvent]], typography: Typography, calendar: Calendar
+    ) {
+        for bar in bars {
+            var runStart: Int?
+            for col in bar.startCol...(bar.endCol + 1) {
+                if col <= bar.endCol, bar.lane < visible[col] {
+                    runStart = runStart ?? col
+                    continue
+                }
+                if col <= bar.endCol {
+                    hidden[col].append(bar.event)
+                }
+                if let start = runStart {
+                    let chip = EventChipView(
+                        event: bar.event, style: .bar(bar.continued || start > bar.startCol), dimmed: bar.isPast,
+                        typography: typography, calendar: calendar
+                    )
+                    chip.onPress = { [weak self] in self?.select(start) }
+                    slots.append(Slot(chip: chip, startCol: start, endCol: col - 1, line: bar.lane))
+                    runStart = nil
+                }
+            }
+        }
+    }
+
+    func dayCell(at col: Int) -> NSView? {
+        dayViews.indices.contains(col) ? dayViews[col] : nil
+    }
+
+    private func select(_ col: Int) {
+        guard dayViews.indices.contains(col) else { return }
+        onSelectDay?(col, dayViews[col])
+    }
+
+    /// 日期格 / chip 不处理点击, 事件沿响应链到此; 按横坐标定位列.
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if let col = dayViews.firstIndex(where: { $0.frame.minX <= point.x && point.x < $0.frame.maxX }) {
+            select(col)
+        }
+    }
+
+    /// 后台窗口首次点击即生效.
+    override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
+        true
     }
 
     /// 日期格置于 chip 之下.
@@ -130,112 +181,14 @@ final class WeekRowView: NSView {
     }
 }
 
-/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日强调色实心标签「yyyy-MM-dd」) + 折叠数 +N; 星期见表头.
-final class DayCellView: NSView {
-    private var info: DayInfo?
-    private var hiddenCount = 0
-    private var fontSize = Typography.standard
-    private var monthTint = true
-    var drawsLeadingEdge = false
-
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        clipsToBounds = true
-    }
-
-    @available(*, unavailable)
-    required init?(coder _: NSCoder) {
-        fatalError()
-    }
-
-    override var isFlipped: Bool {
-        true
-    }
-
-    func configure(
-        _ info: DayInfo, eventCount: Int, hidden: [CalendarEvent], config: WeekRowView.Config, calendar: Calendar
-    ) {
-        self.info = info
-        fontSize = config.typography.fontSize
-        monthTint = config.monthTint
-        hiddenCount = hidden.count
-        setAccessibilityElement(true)
-        setAccessibilityRole(.group)
-        let suffix = info.isToday ? " 今天" : ""
-        let folded = hidden.isEmpty ? "" : ", 另有 \(hidden.count) 个未显示"
-        setAccessibilityLabel("\(info.year)年\(EventText.day(info.date))\(suffix), \(eventCount) 个日程\(folded)")
-        toolTip = hidden.isEmpty ? nil : hidden.map {
-            EventText.detail($0, calendar: calendar).replacingOccurrences(of: "\n", with: " · ")
-        }.joined(separator: "\n")
-        needsDisplay = true
-    }
-
-    override func draw(_: NSRect) {
-        guard let info else { return }
-        let background: NSColor = if monthTint, info.month.isMultiple(of: 2) {
-            NSColor.controlBackgroundColor.blended(withFraction: 0.025, of: .labelColor) ?? .controlBackgroundColor
-        } else {
-            .controlBackgroundColor
-        }
-        background.setFill()
-        bounds.fill()
-
-        NSColor.separatorColor.setFill()
-        NSRect(x: bounds.maxX - 1, y: 0, width: 1, height: bounds.height).fill()
-        NSRect(x: 0, y: bounds.maxY - 1, width: bounds.width, height: 1).fill()
-        if drawsLeadingEdge {
-            NSRect(x: 0, y: 0, width: 1, height: bounds.height).fill()
-        }
-
-        let isWeekend = info.weekday == 1 || info.weekday == 7
-        let isFirst = info.day == 1
-        // 1 日: 实心强调色标签, yyyy-MM-dd (带年份便于跨年辨认).
-        let text = isFirst ? String(format: "%04d-%02d-01", info.year, info.month) : "\(info.day)"
-        let color: NSColor = info.isToday || isFirst ? .white
-            : info.isPast ? .secondaryLabelColor
-            : isWeekend ? .secondaryLabelColor : .labelColor
-        let label = NSAttributedString(string: text, attributes: [
-            .font: NSFont.monospacedDigitSystemFont(
-                ofSize: fontSize - 0.5, weight: info.day == 1 || info.isToday ? .bold : .regular
-            ),
-            .foregroundColor: color
-        ])
-        let size = label.size()
-        let origin = NSPoint(x: 4, y: 1)
-        if info.isToday || isFirst {
-            (info.isToday ? NSColor.systemRed : Self.monthColor).setFill()
-            NSBezierPath(
-                roundedRect: NSRect(x: origin.x - 3, y: origin.y, width: size.width + 6, height: size.height),
-                xRadius: size.height / 2, yRadius: size.height / 2
-            ).fill()
-        }
-        label.draw(at: origin)
-        drawMore(background: background)
-    }
-
-    /// 1 日标签底色.
-    private static let monthColor = NSColor.controlAccentColor
-
-    /// 折叠数 +N 靠右; 底色盖住窄格溢出的日期.
-    private func drawMore(background: NSColor) {
-        guard hiddenCount > 0 else { return }
-        let more = NSAttributedString(string: "+\(hiddenCount)", attributes: [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize - 0.5, weight: .bold),
-            .foregroundColor: NSColor.systemOrange
-        ])
-        let size = more.size()
-        let x = bounds.width - size.width - 4
-        background.setFill()
-        NSRect(x: x - 2, y: 1, width: size.width + 2, height: size.height).fill()
-        more.draw(at: NSPoint(x: x, y: 1))
-    }
-}
-
-/// 事件条目: bar = 全天 / 跨天横条 (continued = 上周延续段); timed = 单日定时事件 (色点 + 时间 + 标题).
-/// 提醒事项: 两种样式均画勾选圈 (已完成 = 实心 + 删除线 + 淡化; 逾期 = 时间红色), 无底色; 只读, 不响应点击.
+/// 事件条目: bar = 全天 / 跨天横条 (continued = 起点在本段之前); timed = 单日定时事件 (色点 + 时间 + 标题).
+/// 提醒事项: 两种样式均画勾选圈 (已完成 = 实心 + 删除线 + 淡化; 逾期 = 时间红色), 无底色.
+/// 只读: 点击沿响应链交给 WeekRowView (打开当日列表).
 final class EventChipView: NSView {
     enum Style { case bar(_ continued: Bool), timed }
 
+    /// AX 按下 = 打开当日列表 (鼠标点击走响应链).
+    var onPress: (() -> Void)?
     private let event: CalendarEvent
     private let style: Style
     private let text: NSAttributedString
@@ -301,6 +254,15 @@ final class EventChipView: NSView {
 
     override var isFlipped: Bool {
         true
+    }
+
+    override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
+        true
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        onPress?()
+        return onPress != nil
     }
 
     override func draw(_: NSRect) {

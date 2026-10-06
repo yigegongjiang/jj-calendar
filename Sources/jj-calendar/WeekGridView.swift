@@ -12,6 +12,7 @@ enum WeekGeometry {
 enum EventText {
     private static let time = formatter("HH:mm")
     private static let day = formatter("M月d日 EEE")
+    private static let shortDay = formatter("M/d")
 
     private static func formatter(_ format: String) -> DateFormatter {
         let formatter = DateFormatter()
@@ -28,6 +29,22 @@ enum EventText {
     static func day(_ date: Date) -> String {
         day.timeZone = .autoupdatingCurrent
         return day.string(from: date)
+    }
+
+    /// 当日列表的时间列: 全天 / 起止时刻; 跨天带日期; 提醒 = 截止时刻.
+    static func when(_ event: CalendarEvent, calendar: Calendar) -> String {
+        shortDay.timeZone = .autoupdatingCurrent
+        if event.isReminder {
+            return event.isAllDay ? "全天" : time(event.start)
+        }
+        let lastDay = event.end > event.start ? event.end.addingTimeInterval(-1) : event.end
+        return switch (event.isAllDay, calendar.isDate(event.start, inSameDayAs: lastDay)) {
+        case (true, true): "全天"
+        case (true, false): "全天 \(shortDay.string(from: event.start))–\(shortDay.string(from: lastDay))"
+        case (false, true): "\(time(event.start))–\(time(event.end))"
+        case (false, false):
+            [event.start, event.end].map { "\(shortDay.string(from: $0)) \(time($0))" }.joined(separator: " – ")
+        }
     }
 
     /// 工具栏摘要「N 个日程 · M 个提醒 · 逾期 K」; 逾期含区间前 (网格不可见), overdue = 悬停列出全部逾期提醒.
@@ -71,8 +88,20 @@ enum EventText {
 final class WeekGridView: NSView {
     private var rows: [WeekRow] = []
     private var calendar = Calendar.current
-    private var generation = 0
     private var rowViews: [WeekRowView] = []
+    private let dayDetail = DayDetailController()
+    private lazy var dayPopover: NSPopover = {
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.contentViewController = dayDetail
+        return popover
+    }()
+
+    /// 数据刷新时当日列表仍打开: layout 后重新锚定到该日期所在格 (行 / 列可能已变).
+    private var pendingAnchor: (row: Int, col: Int)?
+    /// 最近一次排版的各行容量; 视口外的行稍后按此补建.
+    private var capacities: [Int] = []
+    private var deferredApply: Task<Void, Never>?
     private let scrollView = NSScrollView()
     private let documentView = FlippedView()
     private let header = WeekdayHeaderView()
@@ -100,6 +129,12 @@ final class WeekGridView: NSView {
         scrollView.documentView = documentView
         addSubview(header)
         addSubview(scrollView)
+        // 滚动到尚未补建的行时立即建 chip.
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(visibleRectChanged), name: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView
+        )
     }
 
     @available(*, unavailable)
@@ -119,16 +154,45 @@ final class WeekGridView: NSView {
         }
         self.rows = rows
         self.calendar = calendar
-        generation += 1
         while rowViews.count < rows.count {
             let view = WeekRowView()
+            let index = rowViews.count
+            view.onSelectDay = { [weak self] col, anchor in
+                self?.toggleDay(row: index, col: col, anchor: anchor)
+            }
             rowViews.append(view)
             documentView.addSubview(view)
         }
         while rowViews.count > rows.count {
             rowViews.removeLast().removeFromSuperview()
         }
+        refreshDayDetail()
         needsLayout = true
+    }
+
+    /// 点击同一天 = 关闭 (后台时 transient popover 不会因外部点击关闭); 其他天 = 切换内容并移动.
+    private func toggleDay(row: Int, col: Int, anchor: NSView) {
+        guard rows.indices.contains(row), rows[row].days.indices.contains(col) else { return }
+        let day = rows[row].days[col]
+        if dayPopover.isShown, dayDetail.date == day.date {
+            dayPopover.performClose(nil)
+            return
+        }
+        dayDetail.update(day: day, items: rows[row].items(at: col), calendar: calendar)
+        dayPopover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxX)
+    }
+
+    /// 数据刷新: 打开中的日期仍在区间内 -> 原地更新内容, 否则关闭.
+    private func refreshDayDetail() {
+        guard dayPopover.isShown, let date = dayDetail.date else { return }
+        for (index, row) in rows.enumerated() {
+            if let col = row.days.firstIndex(where: { $0.date == date }) {
+                dayDetail.update(day: row.days[col], items: row.items(at: col), calendar: calendar)
+                pendingAnchor = (index, col)
+                return
+            }
+        }
+        dayPopover.performClose(nil)
     }
 
     override func layout() {
@@ -146,23 +210,67 @@ final class WeekGridView: NSView {
         header.columns = rows.first?.columns ?? 7
         documentView.frame = NSRect(x: 0, y: 0, width: width, height: plan.height)
         for (index, placement) in plan.placements.enumerated() {
-            let view = rowViews[index]
-            view.frame = NSRect(x: 0, y: placement.frame.minY, width: width, height: placement.frame.height)
-            view.apply(WeekRowView.Config(
-                generation: generation, typography: typography, capacity: placement.capacity,
-                monthTint: monthTint
-            ), row: rows[index], calendar: calendar)
+            rowViews[index].frame = NSRect(
+                x: 0, y: placement.frame.minY, width: width, height: placement.frame.height
+            )
         }
+        capacities = plan.placements.map(\.capacity)
         if scrollToTopPending || !plan.scrolls {
             scrollToTopPending = false
             scrollView.contentView.scroll(to: .zero)
             scrollView.reflectScrolledClipView(scrollView.contentView)
         }
+        // 先建视口附近的行, 其余分批补建: 首屏耗时只随视口大小增长, 不随区间 / 日程总量增长.
+        let near = scrollView.documentVisibleRect.insetBy(dx: 0, dy: -viewport.height)
+        var later: [Int] = []
+        for index in rows.indices {
+            if !plan.scrolls || rowViews[index].frame.intersects(near) || index == pendingAnchor?.row {
+                applyRow(index)
+            } else {
+                later.append(index)
+            }
+        }
+        scheduleDeferredApply(later)
+        if let anchor = pendingAnchor, dayPopover.isShown, let cell = rowViews[anchor.row].dayCell(at: anchor.col) {
+            dayPopover.show(relativeTo: cell.bounds, of: cell, preferredEdge: .maxX)
+        }
+        pendingAnchor = nil
         let folded = rowViews.reduce(0) { $0 + $1.hiddenTotal }
         let columns = rows.first?.columns ?? 0
         setAccessibilityLabel(
             "每行 \(columns) 格, \(rows.count) 行, \(plan.scrolls ? "滚动" : "不滚动"), 字号 \(typography.fontSize), 折叠 \(folded)"
         )
+    }
+}
+
+extension WeekGridView {
+    /// 内容 / 容量未变的行 apply 直接返回, 重复调用无代价.
+    private func applyRow(_ index: Int) {
+        guard capacities.indices.contains(index), index < rows.count, index < rowViews.count else { return }
+        rowViews[index].apply(WeekRowView.Config(
+            typography: typography, capacity: capacities[index], monthTint: monthTint
+        ), row: rows[index], calendar: calendar)
+    }
+
+    /// 每批若干行, 批间让出主线程 (输入 / 绘制不被阻塞); 新一轮排版取消旧批次.
+    private func scheduleDeferredApply(_ indices: [Int]) {
+        deferredApply?.cancel()
+        guard !indices.isEmpty else { return }
+        deferredApply = Task { [weak self] in
+            for start in stride(from: 0, to: indices.count, by: 6) {
+                try? await Task.sleep(for: .milliseconds(1))
+                guard !Task.isCancelled, let self else { return }
+                indices[start..<min(start + 6, indices.count)].forEach(applyRow)
+            }
+        }
+    }
+
+    @objc
+    private func visibleRectChanged() {
+        let visible = scrollView.documentVisibleRect
+        for (index, view) in rowViews.enumerated() where view.frame.intersects(visible) {
+            applyRow(index)
+        }
     }
 }
 
