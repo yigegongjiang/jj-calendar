@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.5.2] - 2026-10-06
+
+### Changed
+
+- 打版本标签后自动发布 GitHub Release
+
 ## [0.5.1] - 2026-10-06
 
 ### Fixed

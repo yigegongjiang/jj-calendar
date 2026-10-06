@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.5.2] - 2026-10-06
+
+### Changed
+
+- 打版本标签后自动发布 GitHub Release
+  - `.github/workflows/release.yml`: on push tags `v*`; 保留 `workflow_dispatch` 重跑
+
 ## [0.5.1] - 2026-10-06
 
 ### Fixed

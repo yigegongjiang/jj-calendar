@@ -1,7 +1,9 @@
 name: Release
 
-# 前期手动触发 (功能稳定后恢复 push tags: ['v*'] 自动发布): gh workflow run release.yml --ref vX.Y.Z
+# push tag 自动发布; workflow_dispatch 仅用于重跑: gh workflow run release.yml --ref vX.Y.Z
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:

@@ -9,7 +9,7 @@
 # 可用工具
 
 - `gh`: 已登录
-- GitHub Actions: `.github/workflows/release.yml` 手动触发, push tag 不自动执行; 仅人类要求时 `gh workflow run release.yml --ref vX.Y.Z`
+- GitHub Actions: `.github/workflows/release.yml` push tag `vX.Y.Z` 自动发布 GitHub Release; `gh workflow run release.yml --ref vX.Y.Z` 仅用于重跑
 - `xcodebuild` / `swiftformat` / `swiftlint`: 已安装
 
 # 调试
