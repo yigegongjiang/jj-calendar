@@ -36,40 +36,60 @@ struct DayInfo {
     let month: Int
     let year: Int
     let weekday: Int
-    let inRange: Bool
     let isToday: Bool
     let isPast: Bool
 }
 
-/// 某周内一段横条 (全天 / 跨天事件); 跨周事件每周一段.
+/// 每行展示天数; 每月 1 日总在行首, 月末不足一行留空.
+enum RowSpan: Int, CaseIterable {
+    case week, twoWeeks, month
+
+    var title: String {
+        switch self {
+        case .week: "一周"
+        case .twoWeeks: "两周"
+        case .month: "一月"
+        }
+    }
+
+    /// 每行格数; 一月固定 31 格, 各月同日上下对齐.
+    var columns: Int {
+        switch self {
+        case .week: 7
+        case .twoWeeks: 14
+        case .month: 31
+        }
+    }
+}
+
+/// 某行内一段横条 (全天 / 跨天事件); 跨行 / 跨月事件每行一段.
 struct BarSlot {
     let event: CalendarEvent
     let startCol: Int
     let endCol: Int
     let lane: Int
-    /// 事件起点在本段之前 (上周延续而来).
+    /// 事件起点在本段之前 (上一行延续而来).
     let continued: Bool
     let isPast: Bool
 }
 
 struct WeekRow {
+    /// 网格格数 (RowSpan.columns); days 可少于此 (月末), 余下留空.
+    let columns: Int
     let days: [DayInfo]
     let bars: [BarSlot]
-    /// 每列被横条占用的 lane 数; 该列定时事件紧接其下, 不预留整周最大 lane.
+    /// 每列被横条占用的 lane 数; 该列定时事件紧接其下, 不预留整行最大 lane.
     let lanesPerColumn: [Int]
     /// 每列当天的定时事件, 按开始时间排序.
     let timed: [[CalendarEvent]]
-    /// 完整展示本周所需行数 = 各列 (横条 lane + 定时事件) 的最大值.
+    /// 完整展示本行所需行数 = 各列 (横条 lane + 定时事件) 的最大值.
     let lines: Int
 }
 
 enum WeekMetrics {
     static let bottomPad: CGFloat = 1
-    /// 星期表头高度.
-    static let columnHeader: CGFloat = 16
-    static let minDayWidth: CGFloat = 64
-    static let comfortableDayWidth: CGFloat = 140
-    static let maxFlowColumns = 4
+    /// 滚动阈值: 铺满视口时每行至少展示 min(所需, 本值) 行事件; 做不到 -> 改为完整高度 + 纵向滚动.
+    static let minLinesBeforeScroll = 3
 }
 
 /// 用户字号 (⌘+ / ⌘-) 决定的行高; 排版不再自动放大字号.
@@ -94,13 +114,12 @@ struct Typography: Equatable {
     }
 }
 
-/// 连续周网格: 从起始月 1 日所在周到结束月末日所在周, 月份之间不断行.
+/// 行网格: 区间内每月从 1 日起按 RowSpan.columns 切行, 月与月之间断行.
 enum WeekLayout {
     static func calendar() -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "zh_CN")
         calendar.timeZone = .autoupdatingCurrent
-        calendar.firstWeekday = Calendar.autoupdatingCurrent.firstWeekday
         return calendar
     }
 
@@ -111,37 +130,20 @@ enum WeekLayout {
         return MonthRange(start: first, end: calendar.date(byAdding: .month, value: months, to: first)!, months: months)
     }
 
-    /// 网格 [start, end): 整周对齐.
-    static func grid(for range: MonthRange, calendar: Calendar) -> (start: Date, end: Date) {
-        let start = calendar.dateInterval(of: .weekOfYear, for: range.start)!.start
-        let lastDay = calendar.date(byAdding: .day, value: -1, to: range.end)!
-        let end = calendar.dateInterval(of: .weekOfYear, for: lastDay)!.end
-        return (start, end)
-    }
-
-    static func build(range: MonthRange, events: [CalendarEvent], calendar: Calendar, now: Date) -> [WeekRow] {
-        let grid = grid(for: range, calendar: calendar)
-        let totalDays = calendar.dateComponents([.day], from: grid.start, to: grid.end).day!
-        let weekCount = totalDays / 7
+    static func build(
+        range: MonthRange, span: RowSpan, events: [CalendarEvent], calendar: Calendar, now: Date
+    ) -> [WeekRow] {
         let today = calendar.startOfDay(for: now)
+        let (days, rowRanges) = rows(range: range, span: span, calendar: calendar, today: today)
+        let totalDays = days.count
+        // rowOf[日序号] = 所在行.
+        let rowOf = rowRanges.indices.flatMap { repeatElement($0, count: rowRanges[$0].count) }
 
-        var days: [DayInfo] = []
-        days.reserveCapacity(totalDays)
-        for offset in 0..<totalDays {
-            let date = calendar.date(byAdding: .day, value: offset, to: grid.start)!
-            let parts = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
-            days.append(DayInfo(
-                date: date, day: parts.day!, month: parts.month!, year: parts.year!, weekday: parts.weekday!,
-                inRange: date >= range.start && date < range.end,
-                isToday: date == today, isPast: date < today
-            ))
-        }
-
-        var segments = Array(repeating: [Segment](), count: weekCount)
-        var timed = Array(repeating: Array(repeating: [CalendarEvent](), count: 7), count: weekCount)
+        var segments = Array(repeating: [Segment](), count: rowRanges.count)
+        var timed = rowRanges.map { Array(repeating: [CalendarEvent](), count: $0.count) }
 
         func dayIndex(_ date: Date) -> Int {
-            calendar.dateComponents([.day], from: grid.start, to: calendar.startOfDay(for: date)).day!
+            calendar.dateComponents([.day], from: range.start, to: calendar.startOfDay(for: date)).day!
         }
 
         for event in events {
@@ -155,24 +157,50 @@ enum WeekLayout {
 
             if event.isAllDay || last > first {
                 let lower = max(first, 0), upper = min(last, totalDays - 1)
-                for week in (lower / 7)...(upper / 7) {
-                    let start = max(lower, week * 7)
-                    segments[week].append(Segment(
-                        event: event, start: start - week * 7, end: min(upper, week * 7 + 6) - week * 7,
-                        continued: start > first
+                for row in rowOf[lower]...rowOf[upper] {
+                    let bounds = rowRanges[row]
+                    let start = max(lower, bounds.lowerBound)
+                    segments[row].append(Segment(
+                        event: event, start: start - bounds.lowerBound,
+                        end: min(upper, bounds.upperBound - 1) - bounds.lowerBound, continued: start > first
                     ))
                 }
             } else {
-                timed[first / 7][first % 7].append(event)
+                timed[rowOf[first]][first - rowRanges[rowOf[first]].lowerBound].append(event)
             }
         }
 
-        return (0..<weekCount).map { week in
+        return rowRanges.indices.map { row in
             assemble(
-                days: Array(days[week * 7..<week * 7 + 7]), segments: segments[week], timed: timed[week],
-                calendar: calendar, today: today
+                columns: span.columns, days: Array(days[rowRanges[row]]), segments: segments[row],
+                timed: timed[row], today: today
             )
         }
+    }
+
+    /// 区间内逐日信息 + 行划分 (日序号区间): 行起点 = 每月 1 日 + 满 columns 天.
+    private static func rows(
+        range: MonthRange, span: RowSpan, calendar: Calendar, today: Date
+    ) -> (days: [DayInfo], rowRanges: [Range<Int>]) {
+        let totalDays = calendar.dateComponents([.day], from: range.start, to: range.end).day!
+        var days: [DayInfo] = []
+        days.reserveCapacity(totalDays)
+        var rowStarts: [Int] = []
+        for offset in 0..<totalDays {
+            let date = calendar.date(byAdding: .day, value: offset, to: range.start)!
+            let parts = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
+            days.append(DayInfo(
+                date: date, day: parts.day!, month: parts.month!, year: parts.year!, weekday: parts.weekday!,
+                isToday: date == today, isPast: date < today
+            ))
+            if parts.day == 1 || offset - rowStarts.last! == span.columns {
+                rowStarts.append(offset)
+            }
+        }
+        let rowRanges = rowStarts.indices.map { index in
+            rowStarts[index]..<(index + 1 < rowStarts.count ? rowStarts[index + 1] : totalDays)
+        }
+        return (days, rowRanges)
     }
 
     private struct Segment {
@@ -183,7 +211,7 @@ enum WeekLayout {
     }
 
     private static func assemble(
-        days: [DayInfo], segments: [Segment], timed: [[CalendarEvent]], calendar: Calendar, today: Date
+        columns: Int, days: [DayInfo], segments: [Segment], timed: [[CalendarEvent]], today: Date
     ) -> WeekRow {
         let sorted = segments.sorted {
             if $0.start != $1.start {
@@ -199,95 +227,68 @@ enum WeekLayout {
         var bars: [BarSlot] = []
         for segment in sorted {
             let lane = occupied.firstIndex { !$0[segment.start...segment.end].contains(true) } ?? {
-                occupied.append(Array(repeating: false, count: 7))
+                occupied.append(Array(repeating: false, count: days.count))
                 return occupied.count - 1
             }()
             for col in segment.start...segment.end {
                 occupied[lane][col] = true
             }
-            let lastDay = calendar.startOfDay(for: segment.event.end.addingTimeInterval(-1))
+            // today 为零点: 末日早于今天 <=> 结束前一刻早于今天零点.
             bars.append(BarSlot(
                 event: segment.event, startCol: segment.start, endCol: segment.end, lane: lane,
-                continued: segment.continued, isPast: lastDay < today
+                continued: segment.continued, isPast: segment.event.end.addingTimeInterval(-1) < today
             ))
         }
         let dayEvents = timed.map { $0.sorted { ($0.start, $0.title) < ($1.start, $1.title) } }
-        let lanes = (0..<7).map { col in (occupied.lastIndex { $0[col] } ?? -1) + 1 }
+        let lanes = days.indices.map { col in (occupied.lastIndex { $0[col] } ?? -1) + 1 }
         return WeekRow(
-            days: days, bars: bars, lanesPerColumn: lanes,
-            timed: dayEvents, lines: (0..<7).map { lanes[$0] + dayEvents[$0].count }.max() ?? 0
+            columns: columns, days: days, bars: bars, lanesPerColumn: lanes,
+            timed: dayEvents, lines: days.indices.map { lanes[$0] + dayEvents[$0].count }.max() ?? 0
         )
     }
 }
 
-/// 一屏铺满、不滚动的排版: 周行自上而下连续, 一栏放不下时按阅读顺序续排到右侧下一栏.
-/// 栏数优先保证全部展示 (不出现 +N), 其次取日宽最大者; 剩余高度均分给各周.
+/// 单栏排版: 行自上而下.
+/// 视口内每行能展示 min(所需, minLinesBeforeScroll) 行 -> 铺满视口不滚动, 不足部分折叠为 +N;
+/// 否则 -> 每行完整高度 (无 +N), 纵向滚动.
 struct GridPlan {
     struct Placement {
         let frame: NSRect
-        /// 本周可展示的事件行数; 超出部分在日期格折叠为 +N.
+        /// 本行可展示的事件行数; 超出部分在日期格折叠为 +N.
         let capacity: Int
     }
 
-    let columnFrames: [NSRect]
+    /// 内容总高; 不滚动时 = 视口高.
+    let height: CGFloat
+    let scrolls: Bool
     let placements: [Placement]
-
-    private struct Candidate {
-        let score: CGFloat
-        let chunks: [Range<Int>]
-    }
 
     static func make(rows: [WeekRow], size: NSSize, typography: Typography) -> GridPlan {
         let line = typography.line
         let fixed = typography.header + WeekMetrics.bottomPad
-        let height = size.height - WeekMetrics.columnHeader
-        let fit = Int(size.width / (7 * WeekMetrics.minDayWidth))
-        let maxColumns = max(1, min(WeekMetrics.maxFlowColumns, rows.count, fit))
+        let demand = rows.map(\.lines)
+        let available = size.height - CGFloat(rows.count) * fixed
+        let budget = Int(max(0, available) / line)
+        let minimum = demand.reduce(0) { $0 + min($1, WeekMetrics.minLinesBeforeScroll) }
+        let scrolls = available < 0 || minimum > budget
+        let lines = scrolls ? demand : allocate(demand, budget: budget)
+        // 不滚动时剩余高度均分给各行.
+        let extra = scrolls || rows.isEmpty
+            ? 0 : max(0, available - CGFloat(lines.reduce(0, +)) * line) / CGFloat(rows.count)
 
-        var best: Candidate?
-        for columns in 1...maxColumns {
-            let chunks = split(rows.count, into: columns)
-            // 可展示比例: 各栏 (可用行数 / 所需行数) 的最小值.
-            let shown = chunks.map { chunk -> CGFloat in
-                let needed = rows[chunk].reduce(0) { $0 + $1.lines }
-                guard needed > 0 else { return 1 }
-                let available = ((height - CGFloat(chunk.count) * fixed) / line).rounded(.down)
-                return min(max(available, 0) / CGFloat(needed), 1)
-            }.min() ?? 1
-            let dayWidth = size.width / CGFloat(chunks.count) / 7
-            // 折叠 (+N) 代价远高于截断: 可展示比例 4 次方, 其次日宽.
-            let score = pow(shown, 4) * min(dayWidth / WeekMetrics.comfortableDayWidth, 1)
-            if best == nil || score > best!.score + 0.001 {
-                best = Candidate(score: score, chunks: chunks)
-            }
+        var y: CGFloat = 0
+        let placements = lines.map { count in
+            let top = y.rounded()
+            y += fixed + CGFloat(count) * line + extra
+            let frame = NSRect(x: 0, y: top, width: size.width, height: y.rounded() - top)
+            let capacity = Int(((frame.height - fixed) / line + 0.01).rounded(.down))
+            return Placement(frame: frame, capacity: max(0, capacity))
         }
-        guard let best else { return GridPlan(columnFrames: [], placements: []) }
-
-        var columnFrames: [NSRect] = []
-        var placements: [Placement] = []
-        for (index, chunk) in best.chunks.enumerated() {
-            let x = (size.width * CGFloat(index) / CGFloat(best.chunks.count)).rounded()
-            let nextX = (size.width * CGFloat(index + 1) / CGFloat(best.chunks.count)).rounded()
-            columnFrames.append(NSRect(x: x, y: 0, width: nextX - x, height: size.height))
-
-            let available = height - CGFloat(chunk.count) * fixed
-            let budget = allocate(rows[chunk].map(\.lines), budget: Int(max(0, available) / line))
-            let extra = (available - CGFloat(budget.reduce(0, +)) * line) / CGFloat(chunk.count)
-            var y = WeekMetrics.columnHeader
-            for offset in 0..<chunk.count {
-                let content = CGFloat(budget[offset]) * line + max(0, extra)
-                let top = y.rounded()
-                y += fixed + content
-                let frame = NSRect(x: x, y: top, width: nextX - x, height: y.rounded() - top)
-                let capacity = Int(((frame.height - fixed) / line + 0.01).rounded(.down))
-                placements.append(Placement(frame: frame, capacity: max(0, capacity)))
-            }
-        }
-        return GridPlan(columnFrames: columnFrames, placements: placements)
+        return GridPlan(height: scrolls ? y.rounded() : size.height, scrolls: scrolls, placements: placements)
     }
 
-    /// 行数分配 (water-filling): 求最大上限 c 使 Σmin(需求, c) ≤ budget, 余量逐行补给超限周;
-    /// 事件少的周完整展示, 只折叠最拥挤的日子.
+    /// 行数分配 (water-filling): 求最大上限 c 使 Σmin(需求, c) ≤ budget, 余量逐行补给超限行;
+    /// 事件少的行完整展示, 只折叠最拥挤的日子.
     private static func allocate(_ demand: [Int], budget: Int) -> [Int] {
         guard demand.reduce(0, +) > budget else { return demand }
         var cap = 0
@@ -301,10 +302,5 @@ struct GridPlan {
             left -= 1
         }
         return result
-    }
-
-    private static func split(_ count: Int, into columns: Int) -> [Range<Int>] {
-        let perColumn = Int((Double(count) / Double(columns)).rounded(.up))
-        return stride(from: 0, to: count, by: max(1, perColumn)).map { $0..<min($0 + perColumn, count) }
     }
 }

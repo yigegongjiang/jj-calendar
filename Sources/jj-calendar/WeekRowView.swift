@@ -1,6 +1,6 @@
 import AppKit
 
-/// 一周一行: 7 个日期格 + 事件 chip; 容量不足时日期格显示 +N, 悬停列出未显示日程.
+/// 一行: 日期格 (7 / 14 / 28–31 个, 月末不足一行时右侧留空) + 事件 chip; 容量不足时日期格显示 +N, 悬停列出未显示日程.
 final class WeekRowView: NSView {
     struct Config: Equatable {
         let generation: Int
@@ -18,14 +18,13 @@ final class WeekRowView: NSView {
 
     private var row: WeekRow?
     private var config: Config?
-    private let dayViews = (0..<7).map { _ in DayCellView() }
+    private var dayViews: [DayCellView] = []
     private var slots: [Slot] = []
-    /// 本周折叠 (未显示) 的日程格次数.
+    /// 本行折叠 (未显示) 的日程格次数.
     private(set) var hiddenTotal = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        dayViews.forEach(addSubview)
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
     }
@@ -46,9 +45,10 @@ final class WeekRowView: NSView {
         self.row = row
         let capacity = config.capacity
 
+        syncDayViews(count: row.days.count)
         slots.forEach { $0.chip.removeFromSuperview() }
         slots = []
-        var hidden = Array(repeating: [CalendarEvent](), count: 7)
+        var hidden = Array(repeating: [CalendarEvent](), count: row.days.count)
         for bar in row.bars {
             if bar.lane < capacity {
                 let chip = EventChipView(
@@ -92,33 +92,57 @@ final class WeekRowView: NSView {
         needsDisplay = true
     }
 
+    /// 日期格置于 chip 之下.
+    private func syncDayViews(count: Int) {
+        while dayViews.count < count {
+            let view = DayCellView()
+            dayViews.append(view)
+            addSubview(view, positioned: .below, relativeTo: nil)
+        }
+        while dayViews.count > count {
+            dayViews.removeLast().removeFromSuperview()
+        }
+    }
+
     override func layout() {
         super.layout()
-        guard let config else { return }
+        guard let config, let columns = row?.columns else { return }
         let width = bounds.width
         for (col, view) in dayViews.enumerated() {
-            let x = WeekGeometry.columnX(col, width: width)
-            let nextX = WeekGeometry.columnX(col + 1, width: width)
+            let x = WeekGeometry.columnX(col, of: columns, width: width)
+            let nextX = WeekGeometry.columnX(col + 1, of: columns, width: width)
             view.frame = NSRect(x: x, y: 0, width: nextX - x, height: bounds.height)
         }
         let line = config.typography.line
         let top = config.typography.header
         for slot in slots {
-            let x = WeekGeometry.columnX(slot.startCol, width: width)
+            let x = WeekGeometry.columnX(slot.startCol, of: columns, width: width)
             slot.chip.frame = NSRect(
                 x: x + 1, y: top + CGFloat(slot.line) * line,
-                width: WeekGeometry.columnX(slot.endCol + 1, width: width) - x - 3, height: line - 1
+                width: WeekGeometry.columnX(slot.endCol + 1, of: columns, width: width) - x - 3, height: line - 1
             )
         }
     }
 }
 
-/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日加粗显示「N月1日」, 区分月份) + 折叠数 +N.
+/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日加粗显示「N月1日」) + 星期 (周末红色) + 折叠数 +N.
+/// 行首固定为每月 1 / 8 / 15… 日, 列不对应星期, 故星期画在格内.
 final class DayCellView: NSView {
     private var info: DayInfo?
     private var hiddenCount = 0
     private var fontSize = Typography.standard
     private var monthTint = true
+    private static let weekdays = ["日", "一", "二", "三", "四", "五", "六"]
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        clipsToBounds = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        fatalError()
+    }
 
     override var isFlipped: Bool {
         true
@@ -144,9 +168,7 @@ final class DayCellView: NSView {
 
     override func draw(_: NSRect) {
         guard let info else { return }
-        let background: NSColor = if !info.inRange {
-            .windowBackgroundColor
-        } else if monthTint, info.month.isMultiple(of: 2) {
+        let background: NSColor = if monthTint, info.month.isMultiple(of: 2) {
             NSColor.controlBackgroundColor.blended(withFraction: 0.025, of: .labelColor) ?? .controlBackgroundColor
         } else {
             .controlBackgroundColor
@@ -161,7 +183,6 @@ final class DayCellView: NSView {
         let isWeekend = info.weekday == 1 || info.weekday == 7
         let text = info.day == 1 ? "\(info.month)月1日" : "\(info.day)"
         let color: NSColor = info.isToday ? .white
-            : !info.inRange ? .tertiaryLabelColor
             : info.isPast ? .secondaryLabelColor
             : isWeekend && info.day != 1 ? .secondaryLabelColor : .labelColor
         let label = NSAttributedString(string: text, attributes: [
@@ -180,6 +201,14 @@ final class DayCellView: NSView {
             ).fill()
         }
         label.draw(at: origin)
+        let weekday = NSAttributedString(string: Self.weekdays[info.weekday - 1], attributes: [
+            .font: NSFont.systemFont(ofSize: fontSize - 1.5),
+            .foregroundColor: isWeekend ? NSColor.systemRed.withAlphaComponent(info.isPast ? 0.5 : 0.85)
+                : NSColor.tertiaryLabelColor
+        ])
+        weekday.draw(at: NSPoint(
+            x: origin.x + size.width + (info.isToday ? 5 : 2), y: origin.y + (size.height - weekday.size().height) / 2
+        ))
 
         if hiddenCount > 0 {
             let more = NSAttributedString(string: "+\(hiddenCount)", attributes: [

@@ -1,10 +1,10 @@
 import AppKit
 
-/// 列坐标: 宽度 7 等分.
+/// 列坐标: 宽度按行格数 (7 / 14 / 31) 等分.
 @MainActor
 enum WeekGeometry {
-    static func columnX(_ col: Int, width: CGFloat) -> CGFloat {
-        (width * CGFloat(col) / 7).rounded()
+    static func columnX(_ col: Int, of columns: Int, width: CGFloat) -> CGFloat {
+        (width * CGFloat(col) / CGFloat(columns)).rounded()
     }
 }
 
@@ -44,14 +44,15 @@ enum EventText {
     }
 }
 
-/// 一屏网格: 按 GridPlan 摆放周行 + 每栏星期表头; 不滚动.
+/// 单栏网格: 按 GridPlan 自上而下摆放行; 视口放不下时纵向滚动, 放得下时无滚动条且禁回弹.
 final class WeekGridView: NSView {
     private var rows: [WeekRow] = []
     private var calendar = Calendar.current
-    private var symbols: [(text: String, isWeekend: Bool)] = []
     private var generation = 0
     private var rowViews: [WeekRowView] = []
-    private var headers: [WeekdayHeaderView] = []
+    private let scrollView = NSScrollView()
+    private let documentView = FlippedView()
+    private var scrollToTopPending = false
 
     var typography = Typography(fontSize: Typography.standard) {
         didSet { needsLayout = true }
@@ -67,6 +68,13 @@ final class WeekGridView: NSView {
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityIdentifier("weekGrid")
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = .windowBackgroundColor
+        scrollView.hasHorizontalScroller = false
+        scrollView.horizontalScrollElasticity = .none
+        scrollView.autohidesScrollers = false
+        scrollView.documentView = documentView
+        addSubview(scrollView)
     }
 
     @available(*, unavailable)
@@ -78,85 +86,59 @@ final class WeekGridView: NSView {
         true
     }
 
-    func update(rows: [WeekRow], calendar: Calendar, symbols: [(text: String, isWeekend: Bool)]) {
+    /// 起始日 / 每行格数变化 (切换区间或模式) -> 回到顶部; 数据刷新保持滚动位置.
+    func update(rows: [WeekRow], calendar: Calendar) {
+        if rows.first?.days.first?.date != self.rows.first?.days.first?.date
+            || rows.first?.columns != self.rows.first?.columns {
+            scrollToTopPending = true
+        }
         self.rows = rows
         self.calendar = calendar
-        self.symbols = symbols
         generation += 1
         while rowViews.count < rows.count {
             let view = WeekRowView()
             rowViews.append(view)
-            addSubview(view)
+            documentView.addSubview(view)
         }
         while rowViews.count > rows.count {
             rowViews.removeLast().removeFromSuperview()
         }
-        headers.forEach { $0.symbols = symbols }
         needsLayout = true
     }
 
     override func layout() {
         super.layout()
-        let plan = GridPlan.make(rows: rows, size: bounds.size, typography: typography)
-        while headers.count < plan.columnFrames.count {
-            let header = WeekdayHeaderView()
-            header.symbols = symbols
-            headers.append(header)
-            addSubview(header)
-        }
-        while headers.count > plan.columnFrames.count {
-            headers.removeLast().removeFromSuperview()
-        }
-        for (header, frame) in zip(headers, plan.columnFrames) {
-            header.frame = NSRect(x: frame.minX, y: 0, width: frame.width, height: WeekMetrics.columnHeader)
-        }
+        scrollView.frame = bounds
+        // 滚动与否只取决于视口高度 (无横向滚动条), 滚动条出现收窄宽度不会反过来改变判断.
+        let viewport = scrollView.contentSize
+        let plan = GridPlan.make(rows: rows, size: viewport, typography: typography)
+        scrollView.hasVerticalScroller = plan.scrolls
+        scrollView.verticalScrollElasticity = plan.scrolls ? .automatic : .none
+        let width = scrollView.contentSize.width
+        documentView.frame = NSRect(x: 0, y: 0, width: width, height: plan.height)
         for (index, placement) in plan.placements.enumerated() {
             let view = rowViews[index]
-            view.frame = placement.frame
+            view.frame = NSRect(x: 0, y: placement.frame.minY, width: width, height: placement.frame.height)
             view.apply(WeekRowView.Config(
                 generation: generation, typography: typography, capacity: placement.capacity,
                 monthTint: monthTint
             ), row: rows[index], calendar: calendar)
         }
-        let folded = rowViews.reduce(0) { $0 + $1.hiddenTotal }
-        setAccessibilityLabel("\(plan.columnFrames.count) 栏, \(rows.count) 周, 字号 \(typography.fontSize), 折叠 \(folded)")
-    }
-
-    /// 栏间分隔线.
-    override func draw(_: NSRect) {
-        NSColor.windowBackgroundColor.setFill()
-        bounds.fill()
-        NSColor.tertiaryLabelColor.setFill()
-        for header in headers.dropFirst() {
-            NSRect(x: header.frame.minX - 1, y: 0, width: 1, height: bounds.height).fill()
+        if scrollToTopPending || !plan.scrolls {
+            scrollToTopPending = false
+            scrollView.contentView.scroll(to: .zero)
+            scrollView.reflectScrolledClipView(scrollView.contentView)
         }
+        let folded = rowViews.reduce(0) { $0 + $1.hiddenTotal }
+        let columns = rows.first?.columns ?? 0
+        setAccessibilityLabel(
+            "每行 \(columns) 格, \(rows.count) 行, \(plan.scrolls ? "滚动" : "不滚动"), 字号 \(typography.fontSize), 折叠 \(folded)"
+        )
     }
 }
 
-/// 星期表头: 与周行列对齐; 每栏一个.
-final class WeekdayHeaderView: NSView {
-    var symbols: [(text: String, isWeekend: Bool)] = [] {
-        didSet { needsDisplay = true }
-    }
-
+final class FlippedView: NSView {
     override var isFlipped: Bool {
         true
-    }
-
-    override func draw(_: NSRect) {
-        NSColor.windowBackgroundColor.setFill()
-        bounds.fill()
-        NSColor.separatorColor.setFill()
-        NSRect(x: 0, y: bounds.maxY - 1, width: bounds.width, height: 1).fill()
-        for (col, symbol) in symbols.enumerated() {
-            let label = NSAttributedString(string: symbol.text, attributes: [
-                .font: NSFont.systemFont(ofSize: 10, weight: .medium),
-                .foregroundColor: symbol.isWeekend ? NSColor.secondaryLabelColor : NSColor.labelColor
-            ])
-            let x = WeekGeometry.columnX(col, width: bounds.width)
-            let width = WeekGeometry.columnX(col + 1, width: bounds.width) - x
-            let size = label.size()
-            label.draw(at: NSPoint(x: x + (width - size.width) / 2, y: (bounds.height - size.height) / 2))
-        }
     }
 }

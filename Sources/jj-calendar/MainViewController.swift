@@ -1,7 +1,7 @@
 import AppKit
 import EventKit
 
-/// 主界面: 起始年月 + 时长 -> 一屏连续周网格展示区间内全部日程 (不滚动).
+/// 主界面: 起始年月 + 时长 -> 单栏网格展示区间内全部日程; 每行一周 / 两周 / 一月, 拥挤时纵向滚动.
 final class MainViewController: NSViewController {
     private enum Key {
         /// 时长 (月数); 起始月不持久化, 每次启动为本月.
@@ -9,6 +9,7 @@ final class MainViewController: NSViewController {
         static let hiddenCalendars = "hiddenCalendarIDs"
         static let fontSize = "fontSize"
         static let ignoreMonthTint = "ignoreMonthTint"
+        static let rowSpan = "rowSpan"
     }
 
     private let store = CalendarStore()
@@ -26,10 +27,13 @@ final class MainViewController: NSViewController {
         return popover
     }()
 
+    private let rowSpanControl = NSSegmentedControl(
+        labels: RowSpan.allCases.map(\.title), trackingMode: .selectOne, target: nil, action: nil
+    )
     private let monthTintToggle = NSButton(checkboxWithTitle: "忽略背景色", target: nil, action: nil)
     /// 标题栏右侧按钮区: 开关类按钮统一追加到此 stack; AppDelegate 挂到窗口.
     private(set) lazy var titlebarAccessory: NSTitlebarAccessoryViewController = {
-        let stack = NSStackView(views: [monthTintToggle])
+        let stack = NSStackView(views: [rowSpanControl, monthTintToggle])
         stack.spacing = 8
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         stack.frame.size = stack.fittingSize
@@ -138,11 +142,17 @@ final class MainViewController: NSViewController {
             self?.hiddenCalendarIDs = hidden
             self?.persistHidden()
         }
+        rowSpanControl.setAccessibilityIdentifier("rowSpanControl")
+        rowSpanControl.target = self
+        rowSpanControl.action = #selector(rowSpanChanged)
+        rowSpanControl.selectedSegment = defaults.integer(forKey: Key.rowSpan)
         monthTintToggle.setAccessibilityIdentifier("monthTintToggle")
         monthTintToggle.target = self
         monthTintToggle.action = #selector(monthTintToggled)
-        monthTintToggle.controlSize = .small
-        monthTintToggle.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
+        for control in [rowSpanControl, monthTintToggle] {
+            control.controlSize = .small
+            control.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
+        }
         let ignoreTint = defaults.bool(forKey: Key.ignoreMonthTint)
         monthTintToggle.state = ignoreTint ? .on : .off
         gridView.monthTint = !ignoreTint
@@ -159,6 +169,17 @@ final class MainViewController: NSViewController {
         let ignoreTint = monthTintToggle.state == .on
         defaults.set(ignoreTint, forKey: Key.ignoreMonthTint)
         gridView.monthTint = !ignoreTint
+    }
+
+    @objc
+    private func rowSpanChanged() {
+        defaults.set(rowSpanControl.selectedSegment, forKey: Key.rowSpan)
+        relayout()
+    }
+
+    /// 值 = RowSpan.rawValue; 越界 (-1) 回退一周.
+    private var rowSpan: RowSpan {
+        RowSpan(rawValue: rowSpanControl.selectedSegment) ?? .week
     }
 
     private var range: MonthRange {
@@ -195,9 +216,8 @@ final class MainViewController: NSViewController {
         calendar = WeekLayout.calendar()
         generation += 1
         let token = generation
-        let grid = WeekLayout.grid(for: range, calendar: calendar)
         Task {
-            let result = await store.snapshot(from: grid.start, to: grid.end)
+            let result = await store.snapshot(from: range.start, to: range.end)
             guard token == generation else { return }
             snapshot = result
             rebuildCalendarsMenu(result.calendars)
@@ -248,21 +268,11 @@ final class MainViewController: NSViewController {
         guard let snapshot else { return }
         let range = range
         let events = snapshot.events.filter { !hiddenCalendarIDs.contains($0.calendarID) }
-        let rows = WeekLayout.build(range: range, events: events, calendar: calendar, now: Date())
-        gridView.update(rows: rows, calendar: calendar, symbols: weekdaySymbols())
+        let rows = WeekLayout.build(range: range, span: rowSpan, events: events, calendar: calendar, now: Date())
+        gridView.update(rows: rows, calendar: calendar)
 
         let inRange = events.count { $0.end > range.start && $0.start < range.end }
         summaryLabel.stringValue = "\(inRange) 个日程"
-    }
-
-    private func weekdaySymbols() -> [(text: String, isWeekend: Bool)] {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        let symbols = formatter.shortStandaloneWeekdaySymbols!
-        return (0..<7).map { col in
-            let weekday = (calendar.firstWeekday - 1 + col) % 7 + 1
-            return (symbols[weekday - 1], weekday == 1 || weekday == 7)
-        }
     }
 }
 
