@@ -130,7 +130,7 @@ final class WeekRowView: NSView {
     }
 }
 
-/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日加粗显示「N月1日」) + 折叠数 +N; 星期见表头.
+/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日强调色实心标签「N月1日」) + 月界阶梯线 + 折叠数 +N; 星期见表头.
 final class DayCellView: NSView {
     private var info: DayInfo?
     private var hiddenCount = 0
@@ -186,12 +186,15 @@ final class DayCellView: NSView {
         if drawsLeadingEdge {
             NSRect(x: 0, y: 0, width: 1, height: bounds.height).fill()
         }
+        drawMonthEdges(info)
 
         let isWeekend = info.weekday == 1 || info.weekday == 7
-        let text = info.day == 1 ? "\(info.month)月1日" : "\(info.day)"
-        let color: NSColor = info.isToday ? .white
+        let isFirst = info.day == 1
+        // 1 日: 实心强调色标签; 1 月 1 日带年份 (跨年).
+        let text = !isFirst ? "\(info.day)" : info.month == 1 ? "\(info.year)年1月1日" : "\(info.month)月1日"
+        let color: NSColor = info.isToday || isFirst ? .white
             : info.isPast ? .secondaryLabelColor
-            : isWeekend && info.day != 1 ? .secondaryLabelColor : .labelColor
+            : isWeekend ? .secondaryLabelColor : .labelColor
         let label = NSAttributedString(string: text, attributes: [
             .font: NSFont.monospacedDigitSystemFont(
                 ofSize: fontSize - 0.5, weight: info.day == 1 || info.isToday ? .bold : .regular
@@ -200,8 +203,8 @@ final class DayCellView: NSView {
         ])
         let size = label.size()
         let origin = NSPoint(x: 4, y: 1)
-        if info.isToday {
-            NSColor.systemRed.setFill()
+        if info.isToday || isFirst {
+            (info.isToday ? NSColor.systemRed : Self.monthColor).setFill()
             NSBezierPath(
                 roundedRect: NSRect(x: origin.x - 3, y: origin.y, width: size.width + 6, height: size.height),
                 xRadius: size.height / 2, yRadius: size.height / 2
@@ -209,6 +212,22 @@ final class DayCellView: NSView {
         }
         label.draw(at: origin)
         drawMore(background: background)
+    }
+
+    /// 月界强调色.
+    private static let monthColor = NSColor.controlAccentColor
+    /// 月界线粗细.
+    private static let monthEdgeWidth: CGFloat = 3
+
+    /// 月界阶梯线: 新月首周各格顶边 + 1 日左边; 连成一条折线把两个月分开.
+    private func drawMonthEdges(_ info: DayInfo) {
+        Self.monthColor.setFill()
+        if info.monthEdgeTop {
+            NSRect(x: 0, y: 0, width: bounds.width, height: Self.monthEdgeWidth).fill()
+        }
+        if info.monthEdgeLeading {
+            NSRect(x: 0, y: 0, width: Self.monthEdgeWidth, height: bounds.height).fill()
+        }
     }
 
     /// 折叠数 +N 靠右; 底色盖住窄格溢出的日期.
