@@ -7,6 +7,22 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.1] - 2026-10-06
+
+### Added
+
+- 字号可调: 顶栏 A− / A+ 或 ⌘- / ⌘= / ⌘0, 默认更小, 一屏看到更多日程
+  - Typography (8–16, 默认 10): 行高 = 字号 + 4; GridPlan 不再自动放大行高 (原 12–17pt); View 菜单响应链; UserDefaults fontSize
+- 日历筛选改为勾选面板: 可连续勾选多个, ⌥ 点击只看某个日历
+  - CalendarFilterController (NSPopover transient + checkbox) 取代 pullDown 菜单
+
+### Fixed
+
+- 月份底色差异过大、已过日期发白看不清
+  - 偶数月混色 7% → 2.5%; 区间外 underPageBackground → windowBackground; 已过日程 alpha 0.5 → 0.6
+- 标题折行导致每条日程占两行、格子杂乱
+  - 移除 char-wrap 换行, 单行截断 + tooltip
+
 ## [0.2.0] - 2026-10-06
 
 ### Added

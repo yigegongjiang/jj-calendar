@@ -34,7 +34,7 @@ rm -rf -- "$installed_app"
 ditto "$built_app" "$installed_app"
 codesign --verify --strict "$installed_app"
 trap quit_app EXIT
-open "$installed_app"
+open -g "$installed_app"  # 后台启动, 不抢前台
 osascript <<'APPLESCRIPT'
 repeat 50 times
     if application id "com.yigegongjiang.jj-calendar" is running then
