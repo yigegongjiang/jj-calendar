@@ -7,6 +7,16 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.5.1] - 2026-10-06
+
+### Fixed
+
+- 长区间 (如 2 年 + 每行两周) 滚动卡顿: 首次滚动不再掉帧到个位数帧率, 滚动全程流畅
+  - 根因: 每格 / 每条一个 NSView (24 个月两周 2466 个); AppKit 首次滚动每帧重绘全部 chip (~1655 次文字排版 / 帧, 146 ms), 之后每帧图层遍历仍 12–16 ms
+  - `WeekRowView` 无子视图: `wantsUpdateLayer` + `layer.contents` = 整行位图; `RowPicture` 后台 `Task.detached` 渲染, generation 作废旧结果; 可见且无位图 (含内容变化) 才同步渲染
+  - `DayCellView` / `EventChipView` / `MoreChipView` -> `DayCellArt` / `ChipArt` / `MoreArt`; AX = `NSAccessibilityElement` 虚拟子元素 (可按下); tooltip = `addToolTip` + `NSViewToolTipOwner`
+  - `WeekGridView.updateLiveRows`: 视口 ±半屏持有位图, 其余释放; 系统颜色变化重绘; 每帧主线程 146 ms -> 0.6 ms (max 1.2 ms)
+
 ## [0.5.0] - 2026-10-06
 
 ### Changed

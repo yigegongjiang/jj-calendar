@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.5.1] - 2026-10-06
+
+### Fixed
+
+- 长区间 (如 2 年 + 每行两周) 滚动卡顿: 首次滚动不再掉帧到个位数帧率, 滚动全程流畅
+
 ## [0.5.0] - 2026-10-06
 
 ### Changed
