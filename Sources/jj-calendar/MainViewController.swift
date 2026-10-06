@@ -1,12 +1,11 @@
 import AppKit
 import EventKit
 
-/// 主界面: 起止年月 (可跨年) -> 一屏连续周网格展示区间内全部日程 (不滚动).
+/// 主界面: 起始年月 + 时长 -> 一屏连续周网格展示区间内全部日程 (不滚动).
 final class MainViewController: NSViewController {
     private enum Key {
-        /// YearMonth.index.
-        static let start = "range.start"
-        static let end = "range.end"
+        /// 时长 (月数); 起始月不持久化, 每次启动为本月.
+        static let months = "range.months"
         static let hiddenCalendars = "hiddenCalendarIDs"
         static let fontSize = "fontSize"
         static let ignoreMonthTint = "ignoreMonthTint"
@@ -17,8 +16,7 @@ final class MainViewController: NSViewController {
 
     private let startYearPopup = SettablePopUpButton()
     private let startMonthPopup = SettablePopUpButton()
-    private let endYearPopup = SettablePopUpButton()
-    private let endMonthPopup = SettablePopUpButton()
+    private let durationPopup = SettablePopUpButton()
     private let calendarsButton = NSButton(title: "日历", target: nil, action: nil)
     private let filterController = CalendarFilterController()
     private lazy var filterPopover: NSPopover = {
@@ -48,7 +46,9 @@ final class MainViewController: NSViewController {
 
     private var calendar = WeekLayout.calendar()
     private var start = YearMonth(year: 2000, month: 1)
-    private var end = YearMonth(year: 2000, month: 1)
+    private var months = 3
+    /// 上次同步时的本月; 跨月时起始月仍为旧本月 -> 跟随到新本月.
+    private var currentMonth = YearMonth(year: 2000, month: 1)
     private var hiddenCalendarIDs: Set<String>
     private var snapshot: CalendarSnapshot?
     private var generation = 0
@@ -71,11 +71,11 @@ final class MainViewController: NSViewController {
         configureControls()
 
         let toolbar = NSStackView(views: [
-            startYearPopup, startMonthPopup, NSTextField(labelWithString: "–"), endYearPopup, endMonthPopup,
+            startYearPopup, startMonthPopup, durationPopup,
             calendarsButton, summaryLabel
         ])
         toolbar.spacing = 4
-        toolbar.setCustomSpacing(12, after: endMonthPopup)
+        toolbar.setCustomSpacing(12, after: durationPopup)
         toolbar.setCustomSpacing(12, after: calendarsButton)
         toolbar.edgeInsets = NSEdgeInsets(top: 2, left: 4, bottom: 2, right: 4)
         toolbar.setHuggingPriority(.defaultHigh, for: .vertical)
@@ -112,14 +112,15 @@ final class MainViewController: NSViewController {
     // MARK: - Controls
 
     private func configureControls() {
-        let months = (1...12).map { "\($0)月" }
-        startMonthPopup.addItems(withTitles: months)
-        endMonthPopup.addItems(withTitles: months)
+        startMonthPopup.addItems(withTitles: (1...12).map { "\($0)月" })
+        for (months, title) in Self.durations {
+            durationPopup.addItem(withTitle: title)
+            durationPopup.lastItem?.tag = months
+        }
         syncRangeControls()
 
         for (popup, id) in [
-            (startYearPopup, "startYearPopup"), (startMonthPopup, "startMonthPopup"),
-            (endYearPopup, "endYearPopup"), (endMonthPopup, "endMonthPopup")
+            (startYearPopup, "startYearPopup"), (startMonthPopup, "startMonthPopup"), (durationPopup, "durationPopup")
         ] {
             popup.target = self
             popup.action = #selector(rangeChanged(_:))
@@ -161,7 +162,7 @@ final class MainViewController: NSViewController {
     }
 
     private var range: MonthRange {
-        WeekLayout.range(start: start, end: end, calendar: calendar)
+        WeekLayout.range(start: start, end: YearMonth(index: start.index + months - 1), calendar: calendar)
     }
 
     // MARK: - Data
@@ -228,8 +229,7 @@ final class MainViewController: NSViewController {
         let dayChanged = Notification.Name.NSCalendarDayChanged
         observers.tokens.append(center.addObserver(forName: dayChanged, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.syncRangeControls()
-                self?.relayout()
+                self?.followCurrentMonth()
             }
         })
         // 设置中授权后回到窗口即生效.
@@ -252,7 +252,7 @@ final class MainViewController: NSViewController {
         gridView.update(rows: rows, calendar: calendar, symbols: weekdaySymbols())
 
         let inRange = events.count { $0.end > range.start && $0.start < range.end }
-        summaryLabel.stringValue = "\(range.months) 个月 · \(inRange) 个日程"
+        summaryLabel.stringValue = "\(inRange) 个日程"
     }
 
     private func weekdaySymbols() -> [(text: String, isWeekend: Bool)] {
@@ -266,66 +266,61 @@ final class MainViewController: NSViewController {
     }
 }
 
-// MARK: - Range (起止年月, 可跨年)
+// MARK: - Range (起始年月 + 时长, 可跨年)
 
 extension MainViewController {
-    /// 年份候选 = 当前年 ±3 (运行时计算) ∪ 已选年份; 选中项与 start / end 同步.
+    private static let durations = [
+        (1, "1 个月"), (3, "3 个月"), (6, "半年"), (9, "9 个月"),
+        (12, "1 年"), (15, "1 年 3 个月"), (18, "1 年半"), (21, "1 年 9 个月")
+    ]
+
+    private static func thisMonth(_ calendar: Calendar) -> YearMonth {
+        let now = calendar.dateComponents([.year, .month], from: Date())
+        return YearMonth(year: now.year!, month: now.month!)
+    }
+
+    /// 年份候选 = 当前年 ±3 (运行时计算) ∪ 起始年; 选中项与 start / months 同步.
     private func syncRangeControls() {
         let current = calendar.component(.year, from: Date())
-        let years = min(current - 3, start.year)...max(current + 3, end.year)
-        for (popup, value) in [(startYearPopup, start), (endYearPopup, end)] {
-            popup.removeAllItems()
-            popup.addItems(withTitles: years.map { "\($0)年" })
-            for (item, year) in zip(popup.itemArray, years) {
-                item.tag = year
-            }
-            popup.selectItem(withTag: value.year)
+        let years = min(current - 3, start.year)...max(current + 3, start.year)
+        startYearPopup.removeAllItems()
+        startYearPopup.addItems(withTitles: years.map { "\($0)年" })
+        for (item, year) in zip(startYearPopup.itemArray, years) {
+            item.tag = year
         }
+        startYearPopup.selectItem(withTag: start.year)
         startMonthPopup.selectItem(at: start.month - 1)
-        endMonthPopup.selectItem(at: end.month - 1)
+        durationPopup.selectItem(withTag: months)
     }
 
     private func restoreRange() {
-        let now = calendar.dateComponents([.year, .month], from: Date())
-        let current = YearMonth(year: now.year!, month: now.month!)
-        if let first = defaults.object(forKey: Key.start) as? Int, let last = defaults.object(forKey: Key.end) as? Int,
-           first <= last {
-            start = YearMonth(index: first)
-            end = YearMonth(index: last)
-        } else if let year = defaults.object(forKey: "range.year") as? Int,
-                  let first = defaults.object(forKey: "range.startMonth") as? Int,
-                  let last = defaults.object(forKey: "range.endMonth") as? Int,
-                  (1...12).contains(first), (1...12).contains(last) {
-            // v0.2.x: 单一年份 + 起止月, 结束月 < 起始月表示跨入次年.
-            start = YearMonth(year: year, month: first)
-            end = YearMonth(year: last >= first ? year : year + 1, month: last)
-        } else {
-            start = current
-            end = YearMonth(index: current.index + 4)
-        }
-        for legacy in ["range.year", "range.startMonth", "range.endMonth"] {
+        currentMonth = Self.thisMonth(calendar)
+        start = currentMonth
+        let saved = defaults.integer(forKey: Key.months)
+        months = Self.durations.contains { $0.0 == saved } ? saved : 3
+        // v0.2.x: 起止年月持久化.
+        for legacy in ["range.start", "range.end", "range.year", "range.startMonth", "range.endMonth"] {
             defaults.removeObject(forKey: legacy)
         }
-        defaults.set(start.index, forKey: Key.start)
-        defaults.set(end.index, forKey: Key.end)
     }
 
-    /// 起止颠倒时移动另一端: 改起点 -> 终点保持原跨度随之后移; 改终点 -> 起点跟随.
-    @objc
-    private func rangeChanged(_ sender: NSPopUpButton) {
-        var newStart = YearMonth(year: startYearPopup.selectedTag(), month: startMonthPopup.indexOfSelectedItem + 1)
-        var newEnd = YearMonth(year: endYearPopup.selectedTag(), month: endMonthPopup.indexOfSelectedItem + 1)
-        if newStart > newEnd {
-            if sender === startYearPopup || sender === startMonthPopup {
-                newEnd = YearMonth(index: newStart.index + end.index - start.index)
-            } else {
-                newStart = newEnd
-            }
+    /// 跨天: 跨月且起始月仍是旧本月 -> 起始月跟随; 年份候选 / 「今天」随之刷新.
+    private func followCurrentMonth() {
+        let now = Self.thisMonth(calendar)
+        if now != currentMonth, start == currentMonth {
+            start = now
+            reload()
         }
-        start = newStart
-        end = newEnd
-        defaults.set(start.index, forKey: Key.start)
-        defaults.set(end.index, forKey: Key.end)
+        currentMonth = now
+        syncRangeControls()
+        relayout()
+    }
+
+    @objc
+    private func rangeChanged(_: NSPopUpButton) {
+        start = YearMonth(year: startYearPopup.selectedTag(), month: startMonthPopup.indexOfSelectedItem + 1)
+        months = durationPopup.selectedTag()
+        defaults.set(months, forKey: Key.months)
         syncRangeControls()
         reload()
     }
