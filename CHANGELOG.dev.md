@@ -7,6 +7,21 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.5.0] - 2026-10-06
+
+### Changed
+
+- 日历筛选面板重做: 「日历 / 提醒事项」分页签独立控制, 全部显示 / 隐藏 / 只显示只影响当前页签
+  - `CalendarFilterController`: NSGridView -> NSOutlineView (FilterGroup / FilterItem); `FilterSource` 页签, 操作作用域 = `scopeIDs`
+- 按账户分组, 分组复选框一键整组显示 / 隐藏; 顶部搜索框, 打开即可输入
+  - 分组三态复选框; 搜索匹配标题 / 账户名, 关闭面板清空; 结构未变只刷新可见行 (iCloud 刷新不跳动)
+- 整行点击切换; 「只显示」「忽略」悬停才出现, 同项再点「还原」回到之前状态; 右键菜单同样可用
+  - `FilterRowView` 追踪悬停; 按钮仅切 alpha 保留 AX 节点 (`only:<id>` / `ignore:<id>`); `solo` 记录还原点; 取消忽略即显示
+- 「已忽略」默认折叠; 面板高度不超出屏幕, 列表过长时滚动
+  - `AppState.filterTab` / `collapsedCalendarGroups`; `fit(to:)` 按按钮上下较大一侧计算最大高度
+- 键盘: ↓ 进入列表, 空格 / 回车切换, ⌥ 空格只显示
+  - `FilterOutlineView.keyDown`; 鼠标点击不选中行 (`shouldSelectItem`)
+
 ## [0.4.3] - 2026-10-06
 
 ### Fixed
