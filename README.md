@@ -22,4 +22,3 @@
 ## 架构
 
 - Swift 6 + AppKit, macOS 14+, 纯代码 UI; NEVER SwiftUI; 无第三方依赖
-- Debug / Release 独立 Bundle ID (`com.yigegongjiang.jj-calendar[.debug]`), 日历授权各自独立
