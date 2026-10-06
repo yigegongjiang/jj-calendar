@@ -232,6 +232,7 @@ final class DayCellView: NSView {
 }
 
 /// 事件条目: bar = 全天 / 跨天横条 (continued = 上周延续段); timed = 单日定时事件 (色点 + 时间 + 标题).
+/// 提醒事项: 两种样式均画勾选圈 (已完成 = 实心 + 删除线 + 淡化; 逾期 = 时间红色), 无底色; 只读, 不响应点击.
 final class EventChipView: NSView {
     enum Style { case bar(_ continued: Bool), timed }
 
@@ -252,25 +253,30 @@ final class EventChipView: NSView {
             .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize - 1, weight: .regular),
             .foregroundColor: NSColor.secondaryLabelColor
         ]
+        let isOverdue = event.isOverdue(now: Date())
+        var timeAttributes = secondary
+        if isOverdue {
+            timeAttributes[.foregroundColor] = NSColor.systemRed
+        }
         let prefix = NSMutableAttributedString()
         switch style {
         case let .bar(continued):
-            textX = 5
+            textX = event.isReminder ? Self.reminderTextX(fontSize) : 5
             if continued {
                 prefix.append(NSAttributedString(string: "← ", attributes: secondary))
             } else if !event.isAllDay {
-                prefix.append(NSAttributedString(string: EventText.time(event.start) + " ", attributes: secondary))
+                prefix.append(NSAttributedString(string: EventText.time(event.start) + " ", attributes: timeAttributes))
+            } else if isOverdue {
+                // 仅日期的逾期提醒无时间可标红: 补红色「逾期」.
+                prefix.append(NSAttributedString(string: "逾期 ", attributes: timeAttributes))
             }
         case .timed:
-            textX = min(9, fontSize - 1)
-            prefix.append(NSAttributedString(string: EventText.time(event.start) + " ", attributes: secondary))
+            textX = event.isReminder ? Self.reminderTextX(fontSize) : min(9, fontSize - 1)
+            prefix.append(NSAttributedString(string: EventText.time(event.start) + " ", attributes: timeAttributes))
         }
         let truncating = NSMutableParagraphStyle()
         truncating.lineBreakMode = .byTruncatingTail
-        let title = NSAttributedString(string: event.title, attributes: [
-            .font: NSFont.systemFont(ofSize: fontSize), .foregroundColor: NSColor.labelColor,
-            .paragraphStyle: truncating
-        ])
+        let title = Self.title(event, fontSize: fontSize, paragraph: truncating)
         let text = NSMutableAttributedString(attributedString: prefix)
         text.append(title)
         text.addAttribute(.paragraphStyle, value: truncating, range: NSRange(location: 0, length: text.length))
@@ -278,6 +284,8 @@ final class EventChipView: NSView {
         titleText = title
         compactWidth = textX + prefix.size().width + fontSize * 3
         super.init(frame: .zero)
+        // 提醒只按完成状态淡化: 逾期未完成的提醒在过去的日期也保持醒目.
+        let dimmed = event.isReminder ? event.isCompleted : dimmed
         alphaValue = event.isIgnored ? 0.3 : dimmed ? 0.6 : 1
         let detail = EventText.detail(event, calendar: calendar)
         toolTip = detail
@@ -298,6 +306,8 @@ final class EventChipView: NSView {
     override func draw(_: NSRect) {
         let color = event.color.color
         switch style {
+        case _ where event.isReminder:
+            drawCheckCircle(color)
         case .bar:
             let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             color.withAlphaComponent(isDark ? 0.4 : 0.25).setFill()
@@ -313,5 +323,37 @@ final class EventChipView: NSView {
         let height = shown.size().height
         let rect = NSRect(x: textX, y: (bounds.height - height) / 2, width: bounds.width - textX - 1, height: height)
         shown.draw(in: rect)
+    }
+
+    /// 已完成提醒: 删除线 + 次要色.
+    private static func title(
+        _ event: CalendarEvent, fontSize: CGFloat, paragraph: NSParagraphStyle
+    ) -> NSAttributedString {
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: fontSize), .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph
+        ]
+        if event.isCompleted {
+            attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+            attributes[.foregroundColor] = NSColor.secondaryLabelColor
+        }
+        return NSAttributedString(string: event.title, attributes: attributes)
+    }
+
+    private static func reminderTextX(_ fontSize: CGFloat) -> CGFloat {
+        min(12, fontSize + 2)
+    }
+
+    /// 提醒勾选圈: 未完成 = 描边, 已完成 = 实心.
+    private func drawCheckCircle(_ color: NSColor) {
+        let size = min(textX - 4, bounds.height - 4)
+        let circle = NSBezierPath(ovalIn: NSRect(x: 1.5, y: (bounds.height - size) / 2, width: size, height: size))
+        if event.isCompleted {
+            color.setFill()
+            circle.fill()
+        } else {
+            color.setStroke()
+            circle.lineWidth = 1.2
+            circle.stroke()
+        }
     }
 }

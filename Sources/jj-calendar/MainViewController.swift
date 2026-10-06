@@ -1,9 +1,9 @@
 import AppKit
 import EventKit
 
-/// 主界面: 起始年月 + 时长 -> 单栏网格展示区间内全部日程; 每行一周 / 两周, 拥挤时纵向滚动.
+/// 主界面: 起始年月 + 时长 -> 单栏网格展示区间内全部日程 + 提醒事项; 每行一周 / 两周, 拥挤时纵向滚动.
 final class MainViewController: NSViewController {
-    private let store = CalendarStore()
+    let store = CalendarStore()
 
     private let startYearPopup = SettablePopUpButton()
     private let startMonthPopup = SettablePopUpButton()
@@ -34,8 +34,10 @@ final class MainViewController: NSViewController {
     }()
 
     private let summaryLabel = NSTextField(labelWithString: "")
-    private let gridView = WeekGridView()
-    private let messageLabel = NSTextField(wrappingLabelWithString: "")
+    /// 日历 / 提醒事项只授权其一时显示, 直达对应隐私设置.
+    let accessButton = NSButton(title: "", target: nil, action: nil)
+    let gridView = WeekGridView()
+    let messageLabel = NSTextField(wrappingLabelWithString: "")
     private let settingsButton = NSButton(title: "打开日历隐私设置", target: nil, action: nil)
 
     private var calendar = WeekLayout.calendar()
@@ -68,14 +70,19 @@ final class MainViewController: NSViewController {
 
         let toolbar = NSStackView(views: [
             startYearPopup, startMonthPopup, durationPopup,
-            calendarsButton, summaryLabel
+            calendarsButton, accessButton, summaryLabel
         ])
         toolbar.spacing = 4
         toolbar.setCustomSpacing(12, after: durationPopup)
         toolbar.setCustomSpacing(12, after: calendarsButton)
+        toolbar.setCustomSpacing(12, after: accessButton)
         toolbar.edgeInsets = NSEdgeInsets(top: 2, left: 4, bottom: 2, right: 4)
         toolbar.setHuggingPriority(.defaultHigh, for: .vertical)
         summaryLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        summaryLabel.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
+        summaryLabel.textColor = .secondaryLabelColor
+        summaryLabel.lineBreakMode = .byTruncatingTail
+        summaryLabel.setAccessibilityIdentifier("summaryLabel")
 
         messageLabel.alignment = .center
         settingsButton.target = self
@@ -127,9 +134,6 @@ final class MainViewController: NSViewController {
         calendarsButton.setAccessibilityIdentifier("calendarsButton")
         calendarsButton.target = self
         calendarsButton.action = #selector(showCalendarFilter)
-        calendarsButton.controlSize = .small
-        calendarsButton.bezelStyle = .push
-        calendarsButton.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         filterController.onChange = { [weak self] hidden, ignored in
             self?.hiddenCalendarIDs = hidden
             self?.ignoredCalendarIDs = ignored
@@ -150,10 +154,15 @@ final class MainViewController: NSViewController {
         monthTintToggle.state = ignoreTint ? .on : .off
         gridView.monthTint = !ignoreTint
         applyFontSize(ConfigStore.config.fontSize)
-        summaryLabel.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
-        summaryLabel.textColor = .secondaryLabelColor
-        summaryLabel.lineBreakMode = .byTruncatingTail
-        summaryLabel.setAccessibilityIdentifier("summaryLabel")
+        accessButton.setAccessibilityIdentifier("accessButton")
+        accessButton.target = self
+        accessButton.action = #selector(openPrivacySettings)
+        accessButton.isHidden = true
+        for button in [calendarsButton, accessButton] {
+            button.controlSize = .small
+            button.bezelStyle = .push
+            button.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
+        }
     }
 
     @objc
@@ -180,31 +189,8 @@ final class MainViewController: NSViewController {
 
     // MARK: - Data
 
-    private func requestAccess() {
-        Task {
-            if await store.requestAccess() {
-                showMessage(nil)
-                reload()
-            } else {
-                showMessage("无日历完全访问权限: 系统设置 > 隐私与安全性 > 日历 中允许 jj-calendar 后返回本窗口.")
-            }
-        }
-    }
-
-    private func showMessage(_ text: String?) {
-        messageLabel.stringValue = text ?? ""
-        messageLabel.superview?.isHidden = text == nil
-        gridView.isHidden = text != nil
-    }
-
-    @objc
-    private func openPrivacySettings() {
-        let url = "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
-        NSWorkspace.shared.open(URL(string: url)!)
-    }
-
-    private func reload() {
-        guard CalendarStore.hasFullAccess else { return }
+    func reload() {
+        guard AccessState.current.any else { return }
         calendar = WeekLayout.calendar()
         generation += 1
         let token = generation
@@ -249,9 +235,8 @@ final class MainViewController: NSViewController {
         observers.tokens
             .append(center.addObserver(forName: activated, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    guard let self, self.snapshot == nil, CalendarStore.hasFullAccess else { return }
-                    self.showMessage(nil)
-                    self.reload()
+                    guard let self, AccessState.current != self.snapshot?.access else { return }
+                    self.applyAccess()
                 }
             })
     }
@@ -259,17 +244,20 @@ final class MainViewController: NSViewController {
     private func relayout() {
         guard let snapshot else { return }
         let range = range
-        let events = snapshot.events.compactMap { event -> CalendarEvent? in
+        let now = Date()
+        let items = (snapshot.events + snapshot.reminders).compactMap { event -> CalendarEvent? in
             guard !hiddenCalendarIDs.contains(event.calendarID) else { return nil }
             var event = event
             event.isIgnored = ignoredCalendarIDs.contains(event.calendarID)
             return event
         }
-        let rows = WeekLayout.build(range: range, span: rowSpan, events: events, calendar: calendar, now: Date())
+        let rows = WeekLayout.build(range: range, span: rowSpan, events: items, calendar: calendar, now: now)
         gridView.update(rows: rows, calendar: calendar)
-
-        let inRange = events.count { $0.end > range.start && $0.start < range.end }
-        summaryLabel.stringValue = "\(inRange) 个日程"
+        let summary = EventText.summary(
+            items, range: range, now: now, reminders: snapshot.access.reminders, calendar: calendar
+        )
+        summaryLabel.stringValue = summary.text
+        summaryLabel.toolTip = summary.overdue
     }
 }
 

@@ -2,6 +2,7 @@ import AppKit
 
 /// 日历筛选面板 (popover): 复选框可连续勾选, 面板不关闭; 「只显示」按钮 / ⌥ 点击某日历 = 只显示它.
 /// 已忽略的日历: 置底淡化; 忽略时即隐藏, 全部显示不勾选它们, 只能手动勾选显示.
+/// 提醒事项列表与日历同等处理, 按账户分组排在日历之后.
 final class CalendarFilterController: NSViewController {
     var onChange: ((_ hidden: Set<String>, _ ignored: Set<String>) -> Void)?
 
@@ -48,9 +49,10 @@ final class CalendarFilterController: NSViewController {
         grid.column(at: 2).xPlacement = .trailing
         addMergedRow(actions, to: grid, topPadding: 0)
         let active = calendars.filter { !ignored.contains($0.id) }
-        let grouped = Dictionary(grouping: active, by: \.source).sorted { $0.key < $1.key }
-        for (source, items) in grouped {
-            addMergedRow(header(source.isEmpty ? "其他" : source), to: grid, topPadding: 6)
+        let grouped = Dictionary(grouping: active) { GroupKey(isReminderList: $0.isReminderList, source: $0.source) }
+            .sorted { $0.key < $1.key }
+        for (key, items) in grouped {
+            addMergedRow(header(key.title), to: grid, topPadding: 6)
             for summary in items.sorted(by: { $0.title < $1.title }) {
                 grid.addRow(with: calendarRow(summary))
             }
@@ -75,6 +77,21 @@ final class CalendarFilterController: NSViewController {
         ])
         self.grid = grid
         syncStates()
+    }
+
+    /// 分组: 日历在前, 提醒事项在后; 组内按账户名.
+    private struct GroupKey: Hashable, Comparable {
+        let isReminderList: Bool
+        let source: String
+
+        var title: String {
+            let source = source.isEmpty ? "其他" : source
+            return isReminderList ? "提醒事项 · \(source)" : source
+        }
+
+        static func < (lhs: Self, rhs: Self) -> Bool {
+            lhs.isReminderList != rhs.isReminderList ? rhs.isReminderList : lhs.source < rhs.source
+        }
     }
 
     private func addMergedRow(_ view: NSView, to grid: NSGridView, topPadding: CGFloat) {

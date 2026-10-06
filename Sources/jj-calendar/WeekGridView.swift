@@ -30,8 +30,31 @@ enum EventText {
         return day.string(from: date)
     }
 
+    /// 工具栏摘要「N 个日程 · M 个提醒 · 逾期 K」; 逾期含区间前 (网格不可见), overdue = 悬停列出全部逾期提醒.
+    static func summary(
+        _ items: [CalendarEvent], range: MonthRange, now: Date, reminders: Bool, calendar: Calendar
+    ) -> (text: String, overdue: String?) {
+        // 有时刻的提醒 end == start: 起点落在区间内即算.
+        let inRange = items.filter { $0.start < range.end && ($0.end > range.start || $0.start >= range.start) }
+        var parts = ["\(inRange.count { !$0.isReminder }) 个日程"]
+        guard reminders else { return (parts[0], nil) }
+        parts.append("\(inRange.count(where: \.isReminder)) 个提醒")
+        let overdue = items.filter { !$0.isIgnored && $0.isOverdue(now: now) && $0.start < range.end }
+            .sorted { $0.start < $1.start }
+        guard !overdue.isEmpty else { return (parts.joined(separator: " · "), nil) }
+        parts.append("逾期 \(overdue.count)")
+        let list = overdue.map { detail($0, calendar: calendar).replacingOccurrences(of: "\n", with: " · ") }
+        return (parts.joined(separator: " · "), "逾期提醒:\n" + list.joined(separator: "\n"))
+    }
+
     /// tooltip / accessibility 用完整描述.
     static func detail(_ event: CalendarEvent, calendar: Calendar) -> String {
+        if event.isReminder {
+            let due = event.isAllDay ? day(event.start) : "\(day(event.start)) \(time(event.start))"
+            let state = event.isCompleted ? " · 已完成" : event.isOverdue(now: Date()) ? " · 逾期" : ""
+            return [event.title, "\(due) 截止", "提醒事项 · \(event.calendarTitle)\(state)", event.location]
+                .compactMap(\.self).joined(separator: "\n")
+        }
         let lastDay = event.end > event.start ? event.end.addingTimeInterval(-1) : event.end
         let sameDay = calendar.isDate(event.start, inSameDayAs: lastDay)
         let when = switch (event.isAllDay, sameDay) {
