@@ -7,6 +7,17 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.2] - 2026-10-06
+
+### Changed
+
+- 时间选择改为起止「年 + 月」, 可任意跨年 (如 2026年3月 – 2027年10月), 不再限 12 个月
+  - YearMonth (index 比较); WeekLayout.range(start:end:); UserDefaults range.start / range.end, 一次性迁移 v0.2.x range.year/startMonth/endMonth
+- 字号只用快捷键 ⌘+ / ⌘- / ⌘0, 顶栏移除字号按钮与数字
+  - 菜单 ⌘+ 可见 + 隐藏 ⌘= 别名 (allowsKeyEquivalentWhenHidden); target 直连 MainViewController, 后台 AX 可调用
+- 月份分界线 / 栏间线改为 1px 暗色细线, 不再刺眼
+  - labelColor 0.55–0.6 × 2px → tertiaryLabelColor × 1px
+
 ## [0.2.1] - 2026-10-06
 
 ### Added
