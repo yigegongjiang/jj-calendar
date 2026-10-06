@@ -11,6 +11,16 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.2.4] - 2026-10-06
+
+### Added
+
+- 日历筛选每项新增「仅」按钮: 一键只显示该日历 (⌥ 点击仍可用)
+
+### Changed
+
+- 再点「日历」按钮关闭筛选面板
+
 ## [0.2.3] - 2026-10-06
 
 ### Changed

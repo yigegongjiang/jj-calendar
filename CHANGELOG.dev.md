@@ -7,6 +7,19 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.4] - 2026-10-06
+
+### Added
+
+- 日历筛选每项新增「仅」按钮: 一键只显示该日历 (⌥ 点击仍可用)
+  - 只显示 = 可 AX 后台点击的按钮 (修饰键点击需前台); CalendarFilterController.showOnly
+
+### Changed
+
+- 再点「日历」按钮关闭筛选面板
+  - 后台时 transient popover 不随外部点击关闭 -> 按钮 toggle
+  - Debug 实例窗口 orderBack + 不激活: 启动不遮挡 / 不打断人类
+
 ## [0.2.3] - 2026-10-06
 
 ### Changed
