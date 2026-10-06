@@ -237,6 +237,10 @@ final class EventChipView: NSView {
     private let event: CalendarEvent
     private let style: Style
     private let text: NSAttributedString
+    /// 仅标题; 窄格 (一月模式) 放不下「时间 + 几个字」时改用, 保证标题可见.
+    private let titleText: NSAttributedString
+    /// 低于此宽度用 titleText.
+    private let compactWidth: CGFloat
     private let textX: CGFloat
 
     init(event: CalendarEvent, style: Style, dimmed: Bool, typography: Typography, calendar: Calendar) {
@@ -247,26 +251,31 @@ final class EventChipView: NSView {
             .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize - 1, weight: .regular),
             .foregroundColor: NSColor.secondaryLabelColor
         ]
-        let text = NSMutableAttributedString()
+        let prefix = NSMutableAttributedString()
         switch style {
         case let .bar(continued):
             textX = 5
             if continued {
-                text.append(NSAttributedString(string: "← ", attributes: secondary))
+                prefix.append(NSAttributedString(string: "← ", attributes: secondary))
             } else if !event.isAllDay {
-                text.append(NSAttributedString(string: EventText.time(event.start) + " ", attributes: secondary))
+                prefix.append(NSAttributedString(string: EventText.time(event.start) + " ", attributes: secondary))
             }
         case .timed:
             textX = min(9, fontSize - 1)
-            text.append(NSAttributedString(string: EventText.time(event.start) + " ", attributes: secondary))
+            prefix.append(NSAttributedString(string: EventText.time(event.start) + " ", attributes: secondary))
         }
-        text.append(NSAttributedString(string: event.title, attributes: [
-            .font: NSFont.systemFont(ofSize: fontSize), .foregroundColor: NSColor.labelColor
-        ]))
         let truncating = NSMutableParagraphStyle()
         truncating.lineBreakMode = .byTruncatingTail
+        let title = NSAttributedString(string: event.title, attributes: [
+            .font: NSFont.systemFont(ofSize: fontSize), .foregroundColor: NSColor.labelColor,
+            .paragraphStyle: truncating
+        ])
+        let text = NSMutableAttributedString(attributedString: prefix)
+        text.append(title)
         text.addAttribute(.paragraphStyle, value: truncating, range: NSRange(location: 0, length: text.length))
         self.text = text
+        titleText = title
+        compactWidth = textX + prefix.size().width + fontSize * 3
         super.init(frame: .zero)
         alphaValue = dimmed ? 0.6 : 1
         let detail = EventText.detail(event, calendar: calendar)
@@ -299,8 +308,9 @@ final class EventChipView: NSView {
             color.setFill()
             NSBezierPath(ovalIn: NSRect(x: 1, y: (bounds.height - dot) / 2, width: dot, height: dot)).fill()
         }
-        let height = text.size().height
+        let shown = bounds.width < compactWidth ? titleText : text
+        let height = shown.size().height
         let rect = NSRect(x: textX, y: (bounds.height - height) / 2, width: bounds.width - textX - 1, height: height)
-        text.draw(in: rect)
+        shown.draw(in: rect)
     }
 }
