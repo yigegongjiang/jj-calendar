@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.11] - 2026-10-06
+
+### Fixed
+
+- 点「忽略」的日历立即隐藏, 不再以淡色继续显示日程; 想看时在「已忽略」里手动勾选
+  - `CalendarFilterController.toggleIgnored`: 加入 `ignored` 时同时 `hidden.insert`
+
 ## [0.3.10] - 2026-10-06
 
 ### Removed

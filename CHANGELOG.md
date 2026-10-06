@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.3.11] - 2026-10-06
+
+### Fixed
+
+- 点「忽略」的日历立即隐藏, 不再以淡色继续显示日程; 想看时在「已忽略」里手动勾选
+
 ## [0.3.10] - 2026-10-06
 
 ### Removed
