@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.9] - 2026-10-06
+
+### Changed
+
+- 日历筛选面板重新排版: 复选框改用日历颜色, 字号与间距更紧凑, 「仅」统一靠右, 长名称截断不再错位; 隐藏的日历名称变灰
+  - `CalendarFilterController`: 根视图改为四边钉死的两列 `NSGridView` + 日历色自绘方框 (`image` / `alternateImage`, 对勾按亮度取黑 / 白); 顶部 / 「仅」改无边框文字按钮
+
 ## [0.2.8] - 2026-10-06
 
 ### Added

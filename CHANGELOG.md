@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.2.9] - 2026-10-06
+
+### Changed
+
+- 日历筛选面板重新排版: 复选框改用日历颜色, 字号与间距更紧凑, 「仅」统一靠右, 长名称截断不再错位; 隐藏的日历名称变灰
+
 ## [0.2.8] - 2026-10-06
 
 ### Added
