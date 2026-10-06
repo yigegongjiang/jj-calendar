@@ -336,9 +336,14 @@ extension MainViewController {
         calendarsButton.title = hidden == 0 ? "日历 ▾" : "日历 (隐藏 \(hidden)) ▾"
     }
 
+    /// 再次点击关闭: App 在后台时 transient popover 不会因外部点击关闭.
     @objc
     private func showCalendarFilter() {
-        filterPopover.show(relativeTo: calendarsButton.bounds, of: calendarsButton, preferredEdge: .maxY)
+        if filterPopover.isShown {
+            filterPopover.performClose(nil)
+        } else {
+            filterPopover.show(relativeTo: calendarsButton.bounds, of: calendarsButton, preferredEdge: .maxY)
+        }
     }
 
     private func persistHidden() {

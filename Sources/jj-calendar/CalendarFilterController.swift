@@ -1,6 +1,6 @@
 import AppKit
 
-/// 日历筛选面板 (popover): 复选框可连续勾选, 面板不关闭; ⌥ 点击某日历 = 只显示它.
+/// 日历筛选面板 (popover): 复选框可连续勾选, 面板不关闭; 「仅」按钮 / ⌥ 点击某日历 = 只显示它.
 final class CalendarFilterController: NSViewController {
     var onChange: ((Set<String>) -> Void)?
 
@@ -59,7 +59,16 @@ final class CalendarFilterController: NSViewController {
                 checkbox.setAccessibilityLabel(summary.title)
                 checkbox.toolTip = "⌥ 点击: 只显示此日历"
                 checkboxes.append(checkbox)
-                stack.addArrangedSubview(checkbox)
+                let only = NSButton(title: "仅", target: self, action: #selector(showOnlyButton(_:)))
+                only.bezelStyle = .inline
+                only.controlSize = .mini
+                only.font = .systemFont(ofSize: NSFont.systemFontSize(for: .mini))
+                only.identifier = checkbox.identifier
+                only.toolTip = "只显示此日历"
+                only.setAccessibilityLabel("只显示 \(summary.title)")
+                let row = NSStackView(views: [checkbox, only])
+                row.spacing = 4
+                stack.addArrangedSubview(row)
             }
         }
         syncStates()
@@ -75,10 +84,23 @@ final class CalendarFilterController: NSViewController {
     private func toggle(_ sender: NSButton) {
         guard let id = sender.identifier?.rawValue else { return }
         if NSEvent.modifierFlags.contains(.option) {
-            hidden = Set(calendars.map(\.id)).subtracting([id])
-        } else if hidden.remove(id) == nil {
+            showOnly(id)
+            return
+        }
+        if hidden.remove(id) == nil {
             hidden.insert(id)
         }
+        commit()
+    }
+
+    @objc
+    private func showOnlyButton(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue else { return }
+        showOnly(id)
+    }
+
+    private func showOnly(_ id: String) {
+        hidden = Set(calendars.map(\.id)).subtracting([id])
         commit()
     }
 

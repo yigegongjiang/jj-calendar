@@ -21,11 +21,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
         // 记住窗口位置 / 尺寸 (常用最大化).
         window.setFrameAutosaveName("main")
-        window.makeKeyAndOrderFront(nil)
         self.window = window
-        // Debug 实例 (debug.sh 后台启动) 不抢占前台, 避免打断正在使用的 App.
+        // Debug 实例 (debug.sh 后台启动) 置于所有窗口之后且不激活: 不遮挡 / 不打断正在使用的 App.
         if DebugInstance.tag == nil {
+            window.makeKeyAndOrderFront(nil)
             NSApp.activate()
+        } else {
+            window.orderBack(nil)
         }
     }
 

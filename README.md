@@ -18,6 +18,7 @@ Swift + AppKit 实现的 macOS 日历查看器: 只读 macOS 系统日历 (Calen
 - 数据同步: 系统日历数据变化 (`EKEventStoreChanged`) 后尽快刷新界面; MUST NOT 依赖手动刷新.
 - 稳定性: 长期运行稳定, 无崩溃 / 资源泄漏 / 随运行时间增长的性能劣化.
 - App 性能: 启动 + 交互快速; 数据读取 MUST NOT 阻塞 UI.
+- 自动化可控: 所有行为设计 MUST 通过 accessibility 透出自动化控制节点, 后台可完整操作 (无需前台 / 修饰键 / 悬停 / 弹出菜单); Debug 实例启动 + 操作 MUST NOT 干扰人类
 - 不要过度设计
 
 ## 规划
@@ -34,7 +35,7 @@ Swift + AppKit 实现的 macOS 日历查看器: 只读 macOS 系统日历 (Calen
 安装位置: `/Applications/jj-calendar.app`;
 
 - 顶栏: 起始年 + 月 – 结束年 + 月 (任意跨年, 不限跨度; 起止颠倒 → 移动另一端) + 日历筛选 + 月数 / 日程数; 全部持久化 (`range.start` / `range.end` = YearMonth.index)
-- 日历筛选: popover 复选框, 连续勾选不关闭; ⌥ 点击 = 只显示该日历; 全部显示 / 全部隐藏
+- 日历筛选: popover 复选框, 连续勾选不关闭; 「仅」/ ⌥ 点击 = 只显示该日历; 全部显示 / 全部隐藏; 再点「日历」按钮关闭
 - 字号: 仅 View 菜单 ⌘+ (⌘= 同效) / ⌘- / ⌘0 (8–16, 默认 10), 界面不放字号控件; 菜单 target 直连 controller; 行高随字号, 排版不自动放大
 - 网格: 起始月 1 日所在周 → 结束月末日所在周, 逐周连续, 月份间不断行; 月份 = 1px 阶梯线 (tertiaryLabelColor) + 「N月1日」+ 左侧月份标注 + 极弱交替底色
 - 一屏铺满, 不滚动: 周行自上而下, 一栏放不下按阅读顺序续排到右侧下一栏; 横屏 / 竖屏自动重排
@@ -51,7 +52,7 @@ Swift + AppKit 实现的 macOS 日历查看器: 只读 macOS 系统日历 (Calen
 - 数据: `CalendarStore` actor 持有唯一 `EKEventStore`, 查询在 actor 执行器上 → `Sendable` 值类型回主线程; `EKEventStoreChanged` 防抖 300ms 重读
 - 排版: `WeekLayout` 生成周行 (横条 lane 贪心分配) → `GridPlan` 按窗口尺寸 + 字号选栏数 (优先全部展示, 其次日宽) + water-filling 分配行数 → 视图只做摆放
 - Debug / Release 独立 PRODUCT_NAME + Bundle ID (`com.yigegongjiang.jj-calendar[.debug]`) + 图标 (Debug 带 D 标记)
-- 自动化: 全部控件 AX 后台可操作 (不抢前台); 年 / 月 `NSPopUpButton` 经自定义 cell 开放 AX value 写入
+- Debug 实例: 窗口置于所有窗口之后 + 不激活; 年 / 月 `NSPopUpButton` 自定义 cell 开放 AX value 写入
 
 ## 日历权限
 

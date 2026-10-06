@@ -19,12 +19,7 @@
 ./scripts/debug.sh quit                                      # 退出本 worktree 实例 (删 worktree 前执行)
 ```
 
-UI 验证 = peekaboo MCP 工具 (`see` / `click` / `set_value`), 按 PID 定位; 界面变更截图核对: 区间 2 / 6 / 12 / 20 (跨年) 个月 × 横屏 / 竖屏 × 全部 / 部分日历; 截图逐张肉眼核对 (深色模式), AX 数字不能代替
-
-> 人类同时在用本机: NEVER 在 Bash 调 peekaboo CLI (`--foreground` 绕过 MCP 后台限制); MCP 拒绝的操作 MUST NOT 改用前台 / osascript
-
-- 全部控件后台可操作: 年 / 月 popup = `set_value` (选项标题, 如 `2027年` / `3月`); 日历筛选按钮 + popover 复选框 = `click`; 字号 = `menu` click View 菜单; 换屏 / 尺寸 = `window` set-bounds
-- 新增控件 MUST 保持后台可操作 (按钮 / 复选框 / AX value 可写); 弹菜单类控件须补 settable value
+验证: peekaboo; 界面变更截图覆盖 区间 2 / 6 / 12 / 20 (跨年) 个月 × 横屏 / 竖屏 × 全部 / 部分日历
 
 # 发布
 
