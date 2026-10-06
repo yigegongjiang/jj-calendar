@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.2.8] - 2026-10-06
+
+### Added
+
+- 时长新增「2 年」, 作为最后一档
+
 ## [0.2.7] - 2026-10-06
 
 ### Changed

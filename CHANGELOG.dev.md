@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.8] - 2026-10-06
+
+### Added
+
+- 时长新增「2 年」, 作为最后一档
+  - `MainViewController.durations` 追加 `(24, "2 年")`; 网格跨度仍 < EventKit 4 年上限
+
 ## [0.2.7] - 2026-10-06
 
 ### Changed
