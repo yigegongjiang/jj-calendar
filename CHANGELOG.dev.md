@@ -14,6 +14,13 @@
 - 「全部隐藏」/「只显示」同时隐藏已忽略的日历, 不再残留其日程; 「全部显示」仍不勾选已忽略的日历
   - `CalendarFilterController.hideAll` / `showOnly` 作用于全部日历; `showAll` 仍排除 `ignored`
 
+## [0.3.9] - 2026-10-06
+
+### Removed
+
+- 去掉月份交界的阶梯折线 (干扰查看日程); 只保留每月 1 日的强调色实心标签
+  - 删 `DayInfo.monthEdgeTop` / `monthEdgeLeading` + `DayCellView.drawMonthEdges`
+
 ## [0.3.8] - 2026-10-06
 
 ### Changed
