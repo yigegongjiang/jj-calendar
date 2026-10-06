@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.4.3] - 2026-10-06
+
+### Fixed
+
+- 点击无日程的日期不再弹出当日列表 (有弹窗时则关闭)
+
 ## [0.4.2] - 2026-10-06
 
 ### Fixed

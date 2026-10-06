@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.4.3] - 2026-10-06
+
+### Fixed
+
+- 点击无日程的日期不再弹出当日列表 (有弹窗时则关闭)
+  - `WeekGridView.toggleDay`: `items.isEmpty` -> 关闭已开 popover, 不再 show
+
 ## [0.4.2] - 2026-10-06
 
 ### Fixed
