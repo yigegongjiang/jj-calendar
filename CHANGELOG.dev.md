@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.7] - 2026-10-06
+
+### Changed
+
+- 区间改为「起始年月 + 时长」: 起始默认本月, 时长可选 1 个月 / 3 个月 / 半年 / 9 个月 / 1 年 / 1 年 3 个月 / 1 年半 / 1 年 9 个月, 默认 3 个月; 去掉结束年月选择
+  - `MainViewController`: `end` + 结束 popup -> `months` + `durationPopup`; 起始月不持久化, 跨月跟随本月 (`followCurrentMonth`); 仅持久化 `range.months`, 删旧 `range.start` / `range.end`
+
 ## [0.2.6] - 2026-10-06
 
 ### Changed
