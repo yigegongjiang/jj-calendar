@@ -57,6 +57,11 @@ final class WeekGridView: NSView {
         didSet { needsLayout = true }
     }
 
+    /// 月份交替底色.
+    var monthTint = true {
+        didSet { needsLayout = true }
+    }
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         setAccessibilityElement(true)
@@ -110,7 +115,7 @@ final class WeekGridView: NSView {
             view.frame = placement.frame
             view.apply(WeekRowView.Config(
                 generation: generation, typography: typography, capacity: placement.capacity,
-                isColumnTop: placement.isColumnTop
+                isColumnTop: placement.isColumnTop, monthTint: monthTint
             ), row: rows[index], calendar: calendar)
         }
         let folded = rowViews.reduce(0) { $0 + $1.hiddenTotal }

@@ -7,6 +7,7 @@ final class WeekRowView: NSView {
         let typography: Typography
         let capacity: Int
         let isColumnTop: Bool
+        let monthTint: Bool
     }
 
     private struct Slot {
@@ -82,7 +83,7 @@ final class WeekRowView: NSView {
         for (col, day) in row.days.enumerated() {
             let count = row.timed[col].count + row.bars.count { ($0.startCol...$0.endCol).contains(col) }
             dayViews[col].configure(
-                day, eventCount: count, hidden: hidden[col], fontSize: config.typography.fontSize, calendar: calendar
+                day, eventCount: count, hidden: hidden[col], config: config, calendar: calendar
             )
         }
         if let first = row.days.first, let last = row.days.last {
@@ -138,19 +139,23 @@ final class WeekRowView: NSView {
     }
 }
 
-/// 日期格: 月份底色仅微弱交替 + 1px 阶梯月界 + 日期号 (1 日显示「N月1日」) + 折叠数 +N.
+/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日显示「N月1日」) + 折叠数 +N.
 final class DayCellView: NSView {
     private var info: DayInfo?
     private var hiddenCount = 0
     private var fontSize = Typography.standard
+    private var monthTint = true
 
     override var isFlipped: Bool {
         true
     }
 
-    func configure(_ info: DayInfo, eventCount: Int, hidden: [CalendarEvent], fontSize: CGFloat, calendar: Calendar) {
+    func configure(
+        _ info: DayInfo, eventCount: Int, hidden: [CalendarEvent], config: WeekRowView.Config, calendar: Calendar
+    ) {
         self.info = info
-        self.fontSize = fontSize
+        fontSize = config.typography.fontSize
+        monthTint = config.monthTint
         hiddenCount = hidden.count
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
@@ -167,7 +172,7 @@ final class DayCellView: NSView {
         guard let info else { return }
         let background: NSColor = if !info.inRange {
             .windowBackgroundColor
-        } else if info.month.isMultiple(of: 2) {
+        } else if monthTint, info.month.isMultiple(of: 2) {
             NSColor.controlBackgroundColor.blended(withFraction: 0.025, of: .labelColor) ?? .controlBackgroundColor
         } else {
             .controlBackgroundColor
@@ -178,14 +183,6 @@ final class DayCellView: NSView {
         NSColor.separatorColor.setFill()
         NSRect(x: bounds.maxX - 1, y: 0, width: 1, height: bounds.height).fill()
         NSRect(x: 0, y: bounds.maxY - 1, width: bounds.width, height: 1).fill()
-        // 月界: 本月第一周顶边 + 1 日左边, 连成阶梯线; 1px, 仅比格线略深.
-        NSColor.tertiaryLabelColor.setFill()
-        if info.day <= 7 {
-            NSRect(x: 0, y: 0, width: bounds.width, height: 1).fill()
-        }
-        if info.day == 1 {
-            NSRect(x: 0, y: 0, width: 1, height: bounds.height).fill()
-        }
 
         let isWeekend = info.weekday == 1 || info.weekday == 7
         let text = info.day == 1 ? "\(info.month)月1日" : "\(info.day)"

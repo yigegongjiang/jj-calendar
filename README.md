@@ -22,3 +22,4 @@
 ## 架构
 
 - Swift 6 + AppKit, macOS 14+, 纯代码 UI; NEVER SwiftUI; 无第三方依赖
+- 新增按钮 / 开关统一放标题栏右侧 (`MainViewController.titlebarAccessory` stack)

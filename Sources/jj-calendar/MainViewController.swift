@@ -9,6 +9,7 @@ final class MainViewController: NSViewController {
         static let end = "range.end"
         static let hiddenCalendars = "hiddenCalendarIDs"
         static let fontSize = "fontSize"
+        static let ignoreMonthTint = "ignoreMonthTint"
     }
 
     private let store = CalendarStore()
@@ -25,6 +26,19 @@ final class MainViewController: NSViewController {
         popover.behavior = .transient
         popover.contentViewController = filterController
         return popover
+    }()
+
+    private let monthTintToggle = NSButton(checkboxWithTitle: "忽略背景色", target: nil, action: nil)
+    /// 标题栏右侧按钮区: 开关类按钮统一追加到此 stack; AppDelegate 挂到窗口.
+    private(set) lazy var titlebarAccessory: NSTitlebarAccessoryViewController = {
+        let stack = NSStackView(views: [monthTintToggle])
+        stack.spacing = 8
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
+        stack.frame.size = stack.fittingSize
+        let accessory = NSTitlebarAccessoryViewController()
+        accessory.view = stack
+        accessory.layoutAttribute = .trailing
+        return accessory
     }()
 
     private let summaryLabel = NSTextField(labelWithString: "")
@@ -123,12 +137,27 @@ final class MainViewController: NSViewController {
             self?.hiddenCalendarIDs = hidden
             self?.persistHidden()
         }
+        monthTintToggle.setAccessibilityIdentifier("monthTintToggle")
+        monthTintToggle.target = self
+        monthTintToggle.action = #selector(monthTintToggled)
+        monthTintToggle.controlSize = .small
+        monthTintToggle.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
+        let ignoreTint = defaults.bool(forKey: Key.ignoreMonthTint)
+        monthTintToggle.state = ignoreTint ? .on : .off
+        gridView.monthTint = !ignoreTint
         let savedFont = defaults.object(forKey: Key.fontSize) as? Double
         applyFontSize(savedFont.map { CGFloat($0) } ?? Typography.standard)
         summaryLabel.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         summaryLabel.textColor = .secondaryLabelColor
         summaryLabel.lineBreakMode = .byTruncatingTail
         summaryLabel.setAccessibilityIdentifier("summaryLabel")
+    }
+
+    @objc
+    private func monthTintToggled() {
+        let ignoreTint = monthTintToggle.state == .on
+        defaults.set(ignoreTint, forKey: Key.ignoreMonthTint)
+        gridView.monthTint = !ignoreTint
     }
 
     private var range: MonthRange {
@@ -352,28 +381,6 @@ extension MainViewController {
             rebuildCalendarsMenu(snapshot.calendars)
         }
         relayout()
-    }
-}
-
-/// AX value 可写: 自动化以 set value (选项标题) 后台切换, 无需弹出菜单 (弹菜单需前台).
-/// NSPopUpButton 的 AX 元素由 cell 提供, 覆写须在 cell 上.
-private final class SettablePopUpButton: NSPopUpButton {
-    override static var cellClass: AnyClass? {
-        get { Cell.self }
-        set { _ = newValue }
-    }
-
-    private final class Cell: NSPopUpButtonCell {
-        override func isAccessibilitySelectorAllowed(_ selector: Selector) -> Bool {
-            selector == #selector(setAccessibilityValue(_:)) || super.isAccessibilitySelectorAllowed(selector)
-        }
-
-        override func setAccessibilityValue(_ value: Any?) {
-            guard let title = value as? String, let item = item(withTitle: title),
-                  let control = controlView as? NSControl else { return }
-            select(item)
-            control.sendAction(action, to: target)
-        }
     }
 }
 

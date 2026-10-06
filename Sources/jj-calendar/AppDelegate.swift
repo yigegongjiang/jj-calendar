@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = DebugInstance.tag.map { "\(appName) · \($0)" } ?? appName
         window.contentMinSize = NSSize(width: 720, height: 400)
         window.contentViewController = controller
+        window.addTitlebarAccessoryViewController(controller.titlebarAccessory)
         window.isReleasedWhenClosed = false
         window.center()
         // 记住窗口位置 / 尺寸 (常用最大化).
