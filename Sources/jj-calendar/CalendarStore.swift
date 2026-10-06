@@ -19,7 +19,7 @@ struct RGBA: Sendable, Hashable {
 }
 
 /// 日历或提醒事项列表 (二者 id 不重复, 共用隐藏 / 忽略状态).
-struct CalendarSummary: Sendable {
+struct CalendarSummary: Sendable, Equatable {
     let id: String
     let title: String
     let source: String

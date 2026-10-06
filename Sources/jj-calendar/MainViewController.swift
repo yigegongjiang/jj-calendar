@@ -362,7 +362,7 @@ extension MainViewController {
         filterController.update(calendars: calendars, hidden: hiddenCalendarIDs, ignored: ignoredCalendarIDs)
         // 已忽略日历的隐藏不计入: 常态隐藏不应常驻提示.
         let hidden = calendars.count { hiddenCalendarIDs.contains($0.id) && !ignoredCalendarIDs.contains($0.id) }
-        calendarsButton.title = hidden == 0 ? "日历 ▾" : "日历 (隐藏 \(hidden)) ▾"
+        calendarsButton.title = hidden == 0 ? "日历 · 提醒 ▾" : "日历 · 提醒 (隐藏 \(hidden)) ▾"
     }
 
     /// 再次点击关闭: App 在后台时 transient popover 不会因外部点击关闭.
@@ -371,6 +371,7 @@ extension MainViewController {
         if filterPopover.isShown {
             filterPopover.performClose(nil)
         } else {
+            filterController.fit(below: calendarsButton)
             filterPopover.show(relativeTo: calendarsButton.bounds, of: calendarsButton, preferredEdge: .maxY)
         }
     }
