@@ -7,6 +7,22 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.0] - 2026-10-06
+
+### Added
+
+- 跨月连续日程视图: 选择年份 + 起止月份 (可跨年), 逐周连续展示, 月份之间不断开
+  - WeekLayout: 首月 1 日所在周 → 末月末日所在周; 跨天事件按周分段 + lane 贪心分配; 零点结束不占当日
+- 一屏展示全部日程, 不滚动; 横屏 / 竖屏自动分栏重排, 空间富余时标题换行
+  - GridPlan: 栏数评分 = 可展示比例⁴ × 行高 × 日宽; water-filling 分配行数; 行高 12–17pt, 0.5pt 量化
+- 空间不足的日期显示 +N, 悬停查看未显示日程; 悬停事件查看完整详情
+  - DayCellView tooltip 列折叠事件; EventChipView tooltip + AX label = 完整详情
+- 按日历筛选显示; 区间与筛选自动记住
+  - UserDefaults: range.year / range.startMonth / range.endMonth / hiddenCalendarIDs
+- 系统日历变化后自动刷新
+  - CalendarStore actor (只读 EKEventStore); EKEventStoreChanged / 时区 / locale 防抖重读; NSCalendarDayChanged 重排; entitlements + NSCalendarsFullAccessUsageDescription
+  - debug.sh `open -g` + Debug tag 不 activate: 调试实例不抢前台
+
 ## [0.1.0] - 2026-10-06
 
 ### Added
