@@ -95,6 +95,7 @@ final class FilterCell: NSTableCellView {
         checkbox.action = #selector(checkboxPressed)
         checkbox.lineBreakMode = .byTruncatingTail
         checkbox.imageHugsTitle = true
+        checkbox.alignment = .left
         checkbox.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         soloButton.target = self
         soloButton.action = #selector(soloPressed)
@@ -111,7 +112,10 @@ final class FilterCell: NSTableCellView {
         NSLayoutConstraint.activate([
             checkbox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
             checkbox.centerYAnchor.constraint(equalTo: centerYAnchor),
-            checkbox.trailingAnchor.constraint(lessThanOrEqualTo: actions.leadingAnchor, constant: -6),
+            // 条目: 复选框铺满到操作按钮, 整行任意处点击即切换; 分组: 空白处点击展开 / 折叠.
+            kind == .item
+                ? checkbox.trailingAnchor.constraint(equalTo: actions.leadingAnchor, constant: -6)
+                : checkbox.trailingAnchor.constraint(lessThanOrEqualTo: actions.leadingAnchor, constant: -6),
             actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             actions.centerYAnchor.constraint(equalTo: centerYAnchor),
             countLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),

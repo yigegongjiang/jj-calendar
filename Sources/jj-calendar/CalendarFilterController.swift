@@ -8,7 +8,7 @@ import AppKit
 /// - 已忽略: 忽略即隐藏, 不参与全部显示, 手动勾选才显示 (事件淡化); 取消忽略即显示.
 final class CalendarFilterController: NSViewController {
     var onChange: ((_ hidden: Set<String>, _ ignored: Set<String>) -> Void)?
-    /// 面板可用高度; 打开前由 fit(below:) 按锚点位置设置.
+    /// 面板可用高度; 打开前由 fit(to:) 按锚点位置设置.
     private var maxHeight: CGFloat = 600
 
     private var calendars: [CalendarSummary] = []
@@ -136,11 +136,12 @@ final class CalendarFilterController: NSViewController {
         reload()
     }
 
-    /// 面板向下展开: 可用高度 = 锚点底到屏幕可见区底部, 超出部分面板内滚动.
-    func fit(below anchor: NSView) {
+    /// 可用高度 = 锚点上下两侧较大的一侧 (NSPopover 放不下时自动翻到另一侧), 扣除箭头 + 边距; 超出部分面板内滚动.
+    func fit(to anchor: NSView) {
         guard let window = anchor.window, let screen = window.screen else { return }
-        let bottom = window.convertToScreen(anchor.convert(anchor.bounds, to: nil)).minY
-        maxHeight = bottom - screen.visibleFrame.minY - 24
+        let rect = window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
+        let visible = screen.visibleFrame
+        maxHeight = max(rect.minY - visible.minY, visible.maxY - rect.maxY) - 40
         updateSize()
     }
 
@@ -285,7 +286,8 @@ extension CalendarFilterController {
     /// 当前页签内只显示 ids (另一页签不变); 已处于该状态 -> 还原到只显示前.
     private func showOnly(key: String, ids: Set<String>) {
         if let solo, isSolo(key: key, ids: ids) {
-            hidden = solo.restore
+            // 只还原当前页签: 期间另一页签的改动保留.
+            hidden = hidden.subtracting(scopeIDs).union(solo.restore.intersection(scopeIDs))
             self.solo = nil
         } else {
             solo = (key, hidden)

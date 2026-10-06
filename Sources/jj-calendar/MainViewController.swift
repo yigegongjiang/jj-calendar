@@ -371,7 +371,7 @@ extension MainViewController {
         if filterPopover.isShown {
             filterPopover.performClose(nil)
         } else {
-            filterController.fit(below: calendarsButton)
+            filterController.fit(to: calendarsButton)
             filterPopover.show(relativeTo: calendarsButton.bounds, of: calendarsButton, preferredEdge: .maxY)
         }
     }
