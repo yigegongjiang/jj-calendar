@@ -136,6 +136,8 @@ final class WeekRowView: NSView {
         if let first = row.days.first, let last = row.days.last {
             setAccessibilityLabel("\(EventText.day(first.date)) – \(EventText.day(last.date))")
         }
+        // 旧位图是别的内容: 丢弃, 可见行同步重绘 (不显示过时数据).
+        layer?.contents = nil
         invalidateRendering()
         needsLayout = true
     }
