@@ -206,17 +206,27 @@ final class DayCellView: NSView {
             .foregroundColor: isWeekend ? NSColor.systemRed.withAlphaComponent(info.isPast ? 0.5 : 0.85)
                 : NSColor.tertiaryLabelColor
         ])
-        weekday.draw(at: NSPoint(
-            x: origin.x + size.width + (info.isToday ? 5 : 2), y: origin.y + (size.height - weekday.size().height) / 2
-        ))
-
-        if hiddenCount > 0 {
-            let more = NSAttributedString(string: "+\(hiddenCount)", attributes: [
-                .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize - 0.5, weight: .bold),
-                .foregroundColor: NSColor.systemOrange
-            ])
-            more.draw(at: NSPoint(x: bounds.width - more.size().width - 4, y: 1))
+        // 窄格 (一月模式) 优先保留 +N: 星期放不下则省略, +N 底色盖住溢出的日期.
+        let moreX = drawMore(background: background)
+        let weekdayX = origin.x + size.width + (info.isToday ? 5 : 2)
+        if weekdayX + weekday.size().width <= moreX {
+            weekday.draw(at: NSPoint(x: weekdayX, y: origin.y + (size.height - weekday.size().height) / 2))
         }
+    }
+
+    /// 折叠数 +N 靠右; 返回其左边界 (无折叠 = 格宽).
+    private func drawMore(background: NSColor) -> CGFloat {
+        guard hiddenCount > 0 else { return bounds.width }
+        let more = NSAttributedString(string: "+\(hiddenCount)", attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize - 0.5, weight: .bold),
+            .foregroundColor: NSColor.systemOrange
+        ])
+        let size = more.size()
+        let x = bounds.width - size.width - 4
+        background.setFill()
+        NSRect(x: x - 2, y: 1, width: size.width + 2, height: size.height).fill()
+        more.draw(at: NSPoint(x: x, y: 1))
+        return x - 2
     }
 }
 
