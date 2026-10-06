@@ -4,7 +4,7 @@ import AppKit
 final class WeekRowView: NSView {
     struct Config: Equatable {
         let generation: Int
-        let lineHeight: CGFloat
+        let typography: Typography
         let capacity: Int
         let isColumnTop: Bool
     }
@@ -14,14 +14,14 @@ final class WeekRowView: NSView {
         let startCol: Int
         let endCol: Int
         let line: Int
-        let isTimed: Bool
     }
 
     private var row: WeekRow?
     private var config: Config?
     private let dayViews = (0..<7).map { _ in DayCellView() }
     private var slots: [Slot] = []
-    private var hiddenPerColumn = Array(repeating: 0, count: 7)
+    /// 本周折叠 (未显示) 的日程格次数.
+    private(set) var hiddenTotal = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -53,11 +53,9 @@ final class WeekRowView: NSView {
             if bar.lane < capacity {
                 let chip = EventChipView(
                     event: bar.event, style: .bar(bar.continued), dimmed: bar.isPast,
-                    lineHeight: config.lineHeight, calendar: calendar
+                    typography: config.typography, calendar: calendar
                 )
-                slots.append(Slot(
-                    chip: chip, startCol: bar.startCol, endCol: bar.endCol, line: bar.lane, isTimed: false
-                ))
+                slots.append(Slot(chip: chip, startCol: bar.startCol, endCol: bar.endCol, line: bar.lane))
             } else {
                 for col in bar.startCol...bar.endCol {
                     hidden[col].append(bar.event)
@@ -70,20 +68,22 @@ final class WeekRowView: NSView {
                 if line < capacity {
                     let chip = EventChipView(
                         event: event, style: .timed, dimmed: row.days[col].isPast,
-                        lineHeight: config.lineHeight, calendar: calendar
+                        typography: config.typography, calendar: calendar
                     )
-                    slots.append(Slot(chip: chip, startCol: col, endCol: col, line: line, isTimed: true))
+                    slots.append(Slot(chip: chip, startCol: col, endCol: col, line: line))
                 } else {
                     hidden[col].append(event)
                 }
             }
         }
         slots.forEach { addSubview($0.chip) }
-        hiddenPerColumn = hidden.map(\.count)
+        hiddenTotal = hidden.reduce(0) { $0 + $1.count }
 
         for (col, day) in row.days.enumerated() {
             let count = row.timed[col].count + row.bars.count { ($0.startCol...$0.endCol).contains(col) }
-            dayViews[col].configure(day, eventCount: count, hidden: hidden[col], calendar: calendar)
+            dayViews[col].configure(
+                day, eventCount: count, hidden: hidden[col], fontSize: config.typography.fontSize, calendar: calendar
+            )
         }
         if let first = row.days.first, let last = row.days.last {
             setAccessibilityLabel("\(EventText.day(first.date)) – \(EventText.day(last.date))")
@@ -101,35 +101,14 @@ final class WeekRowView: NSView {
             let nextX = WeekGeometry.columnX(col + 1, width: width)
             view.frame = NSRect(x: x, y: 0, width: nextX - x, height: bounds.height)
         }
-        let line = config.lineHeight
-        var timedByColumn = Array(repeating: [Slot](), count: 7)
+        let line = config.typography.line
+        let top = config.typography.header
         for slot in slots {
-            if slot.isTimed {
-                timedByColumn[slot.startCol].append(slot)
-                continue
-            }
             let x = WeekGeometry.columnX(slot.startCol, width: width)
             slot.chip.frame = NSRect(
-                x: x + 1, y: WeekMetrics.header + CGFloat(slot.line) * line,
+                x: x + 1, y: top + CGFloat(slot.line) * line,
                 width: WeekGeometry.columnX(slot.endCol + 1, width: width) - x - 3, height: line - 1
             )
-        }
-        // 列内剩余行分给被截断的定时事件换行展示; 有折叠 (+N) 的列不换行, 空间优先给条目数.
-        for (col, column) in timedByColumn.enumerated() {
-            guard let first = column.first, let last = column.last else { continue }
-            let x = WeekGeometry.columnX(col, width: width)
-            let chipWidth = WeekGeometry.columnX(col + 1, width: width) - x - 3
-            var spare = hiddenPerColumn[col] > 0 ? 0 : config.capacity - last.line - 1
-            var next = first.line
-            for slot in column {
-                let span = 1 + min(slot.chip.lineCount(width: chipWidth) - 1, max(0, spare))
-                spare -= span - 1
-                slot.chip.frame = NSRect(
-                    x: x + 1, y: WeekMetrics.header + CGFloat(next) * line,
-                    width: chipWidth, height: CGFloat(span) * line - 1
-                )
-                next += span
-            }
         }
     }
 
@@ -154,22 +133,24 @@ final class WeekRowView: NSView {
         ])
         month.draw(at: NSPoint(x: (WeekMetrics.gutter - month.size().width) / 2, y: 1))
         if bounds.height >= 26 {
-            year.draw(at: NSPoint(x: (WeekMetrics.gutter - year.size().width) / 2, y: 14))
+            year.draw(at: NSPoint(x: (WeekMetrics.gutter - year.size().width) / 2, y: month.size().height + 1))
         }
     }
 }
 
-/// 日期格: 背景按月份交替着色 (区分月份但不断行) + 日期号 + 月界阶梯粗线 + 折叠数 +N.
+/// 日期格: 月份底色仅微弱交替 (主要靠阶梯粗线区分月份, 不干扰内容) + 日期号 + 折叠数 +N.
 final class DayCellView: NSView {
     private var info: DayInfo?
     private var hiddenCount = 0
+    private var fontSize = Typography.standard
 
     override var isFlipped: Bool {
         true
     }
 
-    func configure(_ info: DayInfo, eventCount: Int, hidden: [CalendarEvent], calendar: Calendar) {
+    func configure(_ info: DayInfo, eventCount: Int, hidden: [CalendarEvent], fontSize: CGFloat, calendar: Calendar) {
         self.info = info
+        self.fontSize = fontSize
         hiddenCount = hidden.count
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
@@ -185,9 +166,9 @@ final class DayCellView: NSView {
     override func draw(_: NSRect) {
         guard let info else { return }
         let background: NSColor = if !info.inRange {
-            .underPageBackgroundColor
+            .windowBackgroundColor
         } else if info.month.isMultiple(of: 2) {
-            NSColor.controlBackgroundColor.blended(withFraction: 0.07, of: .labelColor) ?? .controlBackgroundColor
+            NSColor.controlBackgroundColor.blended(withFraction: 0.025, of: .labelColor) ?? .controlBackgroundColor
         } else {
             .controlBackgroundColor
         }
@@ -212,7 +193,7 @@ final class DayCellView: NSView {
             : info.inRange ? (isWeekend || info.isPast ? .secondaryLabelColor : .labelColor) : .tertiaryLabelColor
         let label = NSAttributedString(string: text, attributes: [
             .font: NSFont.monospacedDigitSystemFont(
-                ofSize: 10, weight: info.day == 1 || info.isToday ? .bold : .regular
+                ofSize: fontSize - 0.5, weight: info.day == 1 || info.isToday ? .bold : .regular
             ),
             .foregroundColor: color
         ])
@@ -229,7 +210,7 @@ final class DayCellView: NSView {
 
         if hiddenCount > 0 {
             let more = NSAttributedString(string: "+\(hiddenCount)", attributes: [
-                .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .bold),
+                .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize - 0.5, weight: .bold),
                 .foregroundColor: NSColor.systemOrange
             ])
             more.draw(at: NSPoint(x: bounds.width - more.size().width - 4, y: 1))
@@ -238,21 +219,18 @@ final class DayCellView: NSView {
 }
 
 /// 事件条目: bar = 全天 / 跨天横条 (continued = 上周延续段); timed = 单日定时事件 (色点 + 时间 + 标题).
-/// 高度超过一行时标题换行展示, 末行截断.
 final class EventChipView: NSView {
     enum Style { case bar(_ continued: Bool), timed }
 
     private let event: CalendarEvent
     private let style: Style
-    private let lineHeight: CGFloat
     private let text: NSAttributedString
     private let textX: CGFloat
 
-    init(event: CalendarEvent, style: Style, dimmed: Bool, lineHeight: CGFloat, calendar: Calendar) {
+    init(event: CalendarEvent, style: Style, dimmed: Bool, typography: Typography, calendar: Calendar) {
         self.event = event
         self.style = style
-        self.lineHeight = lineHeight
-        let fontSize = max(8, lineHeight - 4)
+        let fontSize = typography.fontSize
         let secondary: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize - 1, weight: .regular),
             .foregroundColor: NSColor.secondaryLabelColor
@@ -262,20 +240,23 @@ final class EventChipView: NSView {
         case let .bar(continued):
             textX = 5
             if continued {
-                text.append(NSAttributedString(string: "◂ ", attributes: secondary))
+                text.append(NSAttributedString(string: "← ", attributes: secondary))
             } else if !event.isAllDay {
                 text.append(NSAttributedString(string: EventText.time(event.start) + " ", attributes: secondary))
             }
         case .timed:
-            textX = 9
+            textX = min(9, fontSize - 1)
             text.append(NSAttributedString(string: EventText.time(event.start) + " ", attributes: secondary))
         }
         text.append(NSAttributedString(string: event.title, attributes: [
             .font: NSFont.systemFont(ofSize: fontSize), .foregroundColor: NSColor.labelColor
         ]))
+        let truncating = NSMutableParagraphStyle()
+        truncating.lineBreakMode = .byTruncatingTail
+        text.addAttribute(.paragraphStyle, value: truncating, range: NSRange(location: 0, length: text.length))
         self.text = text
         super.init(frame: .zero)
-        alphaValue = dimmed ? 0.5 : 1
+        alphaValue = dimmed ? 0.6 : 1
         let detail = EventText.detail(event, calendar: calendar)
         toolTip = detail
         setAccessibilityElement(true)
@@ -292,29 +273,8 @@ final class EventChipView: NSView {
         true
     }
 
-    /// 完整展示标题所需行数 (上限 4).
-    func lineCount(width: CGFloat) -> Int {
-        let available = width - textX - 1
-        guard available > 0 else { return 1 }
-        let height = text.boundingRect(
-            with: NSSize(width: available, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin]
-        ).height
-        let single = text.size().height
-        return min(4, max(1, Int((height / single).rounded())))
-    }
-
-    private static func paragraph(_ mode: NSLineBreakMode) -> NSParagraphStyle {
-        let style = NSMutableParagraphStyle()
-        style.lineBreakMode = mode
-        return style
-    }
-
-    private static let truncating = paragraph(.byTruncatingTail)
-    private static let wrapping = paragraph(.byCharWrapping)
-
     override func draw(_: NSRect) {
         let color = event.color.color
-        let firstLine = lineHeight - 1
         switch style {
         case .bar:
             let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -323,23 +283,12 @@ final class EventChipView: NSView {
             color.setFill()
             NSRect(x: 0, y: 0, width: 3, height: bounds.height).fill()
         case .timed:
-            let dot = min(6, firstLine - 4)
+            let dot = min(6, bounds.height - 6)
             color.setFill()
-            NSBezierPath(ovalIn: NSRect(x: 1, y: (firstLine - dot) / 2, width: dot, height: dot)).fill()
+            NSBezierPath(ovalIn: NSRect(x: 1, y: (bounds.height - dot) / 2, width: dot, height: dot)).fill()
         }
-        let multiline = bounds.height > lineHeight * 1.5
-        let styled = NSMutableAttributedString(attributedString: text)
-        styled.addAttribute(
-            .paragraphStyle, value: multiline ? Self.wrapping : Self.truncating,
-            range: NSRange(location: 0, length: styled.length)
-        )
-        let single = styled.size().height
-        let top = (firstLine - single) / 2
-        let rect = NSRect(x: textX, y: top, width: bounds.width - textX - 1, height: bounds.height - top)
-        if multiline {
-            styled.draw(with: rect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
-        } else {
-            styled.draw(in: NSRect(x: rect.minX, y: top, width: rect.width, height: single))
-        }
+        let height = text.size().height
+        let rect = NSRect(x: textX, y: (bounds.height - height) / 2, width: bounds.width - textX - 1, height: height)
+        text.draw(in: rect)
     }
 }

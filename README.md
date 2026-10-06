@@ -33,10 +33,12 @@ Swift + AppKit 实现的 macOS 日历查看器: 只读 macOS 系统日历 (Calen
 
 安装位置: `/Applications/jj-calendar.app`;
 
-- 顶栏: 年份 + 起始月 + 结束月 (结束月 < 起始月 → 跨入次年, 最多 12 个月) + 日历筛选 (按日历隐藏); 选择持久化
-- 网格: 起始月 1 日所在周 → 结束月末日所在周, 逐周连续, 月份间不断行; 月份 = 交替底色 + 阶梯粗线 + 左侧月份标注
+- 顶栏: 年份 + 起始月 + 结束月 (结束月 < 起始月 → 跨入次年, 最多 12 个月) + 日历筛选 + 字号; 全部持久化
+- 日历筛选: popover 复选框, 连续勾选不关闭; ⌥ 点击 = 只显示该日历; 全部显示 / 全部隐藏
+- 字号: `A−` / `A+` 或 ⌘- / ⌘= / ⌘0 (8–16, 默认 10); 行高随字号, 排版不自动放大
+- 网格: 起始月 1 日所在周 → 结束月末日所在周, 逐周连续, 月份间不断行; 月份 = 阶梯粗线 + 左侧月份标注 + 极弱交替底色
 - 一屏铺满, 不滚动: 周行自上而下, 一栏放不下按阅读顺序续排到右侧下一栏; 横屏 / 竖屏自动重排
-- 全天 / 跨天事件 = 横条 (跨周分段, `◂` = 上周延续); 单日定时事件 = 色点 + 时间 + 标题, 空间富余时标题换行
+- 全天 / 跨天事件 = 横条 (跨周分段, `←` = 上周延续); 单日定时事件 = 色点 + 时间 + 标题; 每条单行, 超长截断
 - 空间不足时日期格右上 `+N` 折叠, 悬停列出未显示日程; 悬停任一事件看完整详情
 - 系统日历变更 / 跨天 / 时区变化自动刷新
 
@@ -47,7 +49,7 @@ Swift + AppKit 实现的 macOS 日历查看器: 只读 macOS 系统日历 (Calen
 - 原生 `jj-calendar.xcodeproj` + shared scheme `jj-calendar`; `xcodebuild` 编译 / 组装 `.app` / 签名 (默认 ad-hoc, 传 Team 用 Apple Development)
 - macOS 14+ (EventKit `requestFullAccessToEvents` 起点); 无第三方依赖
 - 数据: `CalendarStore` actor 持有唯一 `EKEventStore`, 查询在 actor 执行器上 → `Sendable` 值类型回主线程; `EKEventStoreChanged` 防抖 300ms 重读
-- 排版: `WeekLayout` 生成周行 (横条 lane 贪心分配) → `GridPlan` 按窗口尺寸选栏数 (优先全部展示, 其次行高 × 日宽) + water-filling 分配行数 → 视图只做摆放
+- 排版: `WeekLayout` 生成周行 (横条 lane 贪心分配) → `GridPlan` 按窗口尺寸 + 字号选栏数 (优先全部展示, 其次日宽) + water-filling 分配行数 → 视图只做摆放
 - Debug / Release 独立 PRODUCT_NAME + Bundle ID (`com.yigegongjiang.jj-calendar[.debug]`) + 图标 (Debug 带 D 标记)
 
 ## 日历权限
@@ -66,6 +68,7 @@ Swift + AppKit 实现的 macOS 日历查看器: 只读 macOS 系统日历 (Calen
 | `Sources/jj-calendar/AppDelegate.swift` | 窗口 + 主菜单 |
 | `Sources/jj-calendar/MainViewController.swift` | 主界面: 顶栏 + 授权 + 数据刷新 + 日历筛选 |
 | `Sources/jj-calendar/CalendarStore.swift` | EventKit 只读访问 (actor) |
+| `Sources/jj-calendar/CalendarFilterController.swift` | 日历筛选 popover |
 | `Sources/jj-calendar/WeekLayout.swift` | 连续周网格模型 + 一屏排版 `GridPlan` |
 | `Sources/jj-calendar/WeekGridView.swift` | 网格容器 + 星期表头 + 事件文案 |
 | `Sources/jj-calendar/WeekRowView.swift` | 周行 / 日期格 / 事件 chip 渲染 |

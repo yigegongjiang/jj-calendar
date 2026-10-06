@@ -53,6 +53,10 @@ final class WeekGridView: NSView {
     private var rowViews: [WeekRowView] = []
     private var headers: [WeekdayHeaderView] = []
 
+    var typography = Typography(fontSize: Typography.standard) {
+        didSet { needsLayout = true }
+    }
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         setAccessibilityElement(true)
@@ -88,7 +92,7 @@ final class WeekGridView: NSView {
 
     override func layout() {
         super.layout()
-        let plan = GridPlan.make(rows: rows, size: bounds.size)
+        let plan = GridPlan.make(rows: rows, size: bounds.size, typography: typography)
         while headers.count < plan.columnFrames.count {
             let header = WeekdayHeaderView()
             header.symbols = symbols
@@ -105,11 +109,12 @@ final class WeekGridView: NSView {
             let view = rowViews[index]
             view.frame = placement.frame
             view.apply(WeekRowView.Config(
-                generation: generation, lineHeight: plan.lineHeight, capacity: placement.capacity,
+                generation: generation, typography: typography, capacity: placement.capacity,
                 isColumnTop: placement.isColumnTop
             ), row: rows[index], calendar: calendar)
         }
-        setAccessibilityLabel("\(plan.columnFrames.count) 栏, \(rows.count) 周")
+        let folded = rowViews.reduce(0) { $0 + $1.hiddenTotal }
+        setAccessibilityLabel("\(plan.columnFrames.count) 栏, \(rows.count) 周, 字号 \(typography.fontSize), 折叠 \(folded)")
     }
 
     /// 栏间分隔线.

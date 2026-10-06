@@ -48,8 +48,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowMenu.addItem(withTitle: "Minimize", action: minimize, keyEquivalent: "m")
         NSApp.windowsMenu = windowMenu
 
+        // 字号: target = nil 走响应链到 MainViewController.
+        let viewMenu = NSMenu(title: "View")
+        let larger = #selector(MainViewController.increaseFontSize(_:))
+        let smaller = #selector(MainViewController.decreaseFontSize(_:))
+        let reset = #selector(MainViewController.resetFontSize(_:))
+        viewMenu.addItem(withTitle: "放大字号", action: larger, keyEquivalent: "=")
+        viewMenu.addItem(withTitle: "缩小字号", action: smaller, keyEquivalent: "-")
+        viewMenu.addItem(withTitle: "默认字号", action: reset, keyEquivalent: "0")
+
         let mainMenu = NSMenu()
-        for submenu in [appMenu, windowMenu] {
+        for submenu in [appMenu, viewMenu, windowMenu] {
             let item = NSMenuItem()
             item.submenu = submenu
             mainMenu.addItem(item)

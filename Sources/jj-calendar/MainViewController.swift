@@ -8,6 +8,7 @@ final class MainViewController: NSViewController {
         static let startMonth = "range.startMonth"
         static let endMonth = "range.endMonth"
         static let hiddenCalendars = "hiddenCalendarIDs"
+        static let fontSize = "fontSize"
     }
 
     private let store = CalendarStore()
@@ -16,8 +17,19 @@ final class MainViewController: NSViewController {
     private let yearPopup = NSPopUpButton()
     private let startPopup = NSPopUpButton()
     private let endPopup = NSPopUpButton()
-    private let calendarsPopup = NSPopUpButton(frame: .zero, pullsDown: true)
+    private let calendarsButton = NSButton(title: "日历", target: nil, action: nil)
+    private let filterController = CalendarFilterController()
+    private lazy var filterPopover: NSPopover = {
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.contentViewController = filterController
+        return popover
+    }()
+
     private let summaryLabel = NSTextField(labelWithString: "")
+    private let smallerButton = NSButton(title: "A−", target: nil, action: nil)
+    private let largerButton = NSButton(title: "A+", target: nil, action: nil)
+    private let fontLabel = NSTextField(labelWithString: "")
     private let gridView = WeekGridView()
     private let messageLabel = NSTextField(wrappingLabelWithString: "")
     private let settingsButton = NSButton(title: "打开日历隐私设置", target: nil, action: nil)
@@ -48,7 +60,8 @@ final class MainViewController: NSViewController {
         configureControls()
 
         let toolbar = NSStackView(views: [
-            yearPopup, startPopup, NSTextField(labelWithString: "至"), endPopup, calendarsPopup, summaryLabel
+            yearPopup, startPopup, NSTextField(labelWithString: "至"), endPopup, calendarsButton,
+            smallerButton, fontLabel, largerButton, summaryLabel
         ])
         toolbar.spacing = 6
         toolbar.edgeInsets = NSEdgeInsets(top: 2, left: 4, bottom: 2, right: 4)
@@ -98,12 +111,21 @@ final class MainViewController: NSViewController {
             popup.action = #selector(rangeChanged)
             popup.setAccessibilityIdentifier(id)
         }
-        calendarsPopup.setAccessibilityIdentifier("calendarsPopup")
-        calendarsPopup.addItem(withTitle: "日历")
-        for popup in [yearPopup, startPopup, endPopup, calendarsPopup] {
+        calendarsButton.setAccessibilityIdentifier("calendarsButton")
+        calendarsButton.target = self
+        calendarsButton.action = #selector(showCalendarFilter)
+        calendarsButton.controlSize = .small
+        calendarsButton.bezelStyle = .push
+        calendarsButton.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
+        filterController.onChange = { [weak self] hidden in
+            self?.hiddenCalendarIDs = hidden
+            self?.persistHidden()
+        }
+        for popup in [yearPopup, startPopup, endPopup] {
             popup.controlSize = .small
             popup.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         }
+        configureFontControls()
         summaryLabel.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         summaryLabel.textColor = .secondaryLabelColor
         summaryLabel.lineBreakMode = .byTruncatingTail
@@ -256,55 +278,66 @@ final class MainViewController: NSViewController {
     }
 }
 
+// MARK: - Font size (⌘+ / ⌘- / ⌘0, 菜单经响应链调用)
+
+extension MainViewController {
+    private func configureFontControls() {
+        for (button, id, action) in [
+            (smallerButton, "fontSmallerButton", #selector(decreaseFontSize(_:))),
+            (largerButton, "fontLargerButton", #selector(increaseFontSize(_:)))
+        ] {
+            button.target = self
+            button.action = action
+            button.controlSize = .small
+            button.bezelStyle = .push
+            button.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
+            button.setAccessibilityIdentifier(id)
+        }
+        smallerButton.toolTip = "缩小字号 (⌘-)"
+        largerButton.toolTip = "放大字号 (⌘+)"
+        fontLabel.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize(for: .small), weight: .regular)
+        fontLabel.setAccessibilityIdentifier("fontSizeLabel")
+        let saved = defaults.object(forKey: Key.fontSize) as? Double
+        applyFontSize(saved.map { CGFloat($0) } ?? Typography.standard)
+    }
+
+    @objc
+    func increaseFontSize(_: Any?) {
+        applyFontSize(gridView.typography.fontSize + 1)
+    }
+
+    @objc
+    func decreaseFontSize(_: Any?) {
+        applyFontSize(gridView.typography.fontSize - 1)
+    }
+
+    @objc
+    func resetFontSize(_: Any?) {
+        applyFontSize(Typography.standard)
+    }
+
+    private func applyFontSize(_ size: CGFloat) {
+        let typography = Typography(fontSize: size)
+        gridView.typography = typography
+        defaults.set(Double(typography.fontSize), forKey: Key.fontSize)
+        fontLabel.stringValue = "字号 \(Int(typography.fontSize))"
+        smallerButton.isEnabled = typography.fontSize > Typography.range.lowerBound
+        largerButton.isEnabled = typography.fontSize < Typography.range.upperBound
+    }
+}
+
 // MARK: - Calendars filter
 
 extension MainViewController {
     private func rebuildCalendarsMenu(_ calendars: [CalendarSummary]) {
-        let menu = calendarsPopup.menu!
-        while menu.numberOfItems > 1 {
-            menu.removeItem(at: 1)
-        }
-        let showAll = NSMenuItem(title: "全部显示", action: #selector(showAllCalendars), keyEquivalent: "")
-        showAll.target = self
-        menu.addItem(showAll)
-        let grouped = Dictionary(grouping: calendars, by: \.source).sorted { $0.key < $1.key }
-        for (source, items) in grouped {
-            menu.addItem(.separator())
-            menu.addItem(.sectionHeader(title: source.isEmpty ? "其他" : source))
-            for summary in items.sorted(by: { $0.title < $1.title }) {
-                let item = NSMenuItem(title: summary.title, action: #selector(toggleCalendar(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = summary.id
-                item.state = hiddenCalendarIDs.contains(summary.id) ? .off : .on
-                item.image = Self.swatch(summary.color)
-                menu.addItem(item)
-            }
-        }
+        filterController.update(calendars: calendars, hidden: hiddenCalendarIDs)
         let hidden = calendars.count { hiddenCalendarIDs.contains($0.id) }
-        calendarsPopup.item(at: 0)?.title = hidden == 0 ? "日历" : "日历 (隐藏 \(hidden))"
-    }
-
-    private static func swatch(_ color: RGBA) -> NSImage {
-        NSImage(size: NSSize(width: 10, height: 10), flipped: false) { rect in
-            color.color.setFill()
-            NSBezierPath(ovalIn: rect).fill()
-            return true
-        }
+        calendarsButton.title = hidden == 0 ? "日历 ▾" : "日历 (隐藏 \(hidden)) ▾"
     }
 
     @objc
-    private func toggleCalendar(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String else { return }
-        if hiddenCalendarIDs.remove(id) == nil {
-            hiddenCalendarIDs.insert(id)
-        }
-        persistHidden()
-    }
-
-    @objc
-    private func showAllCalendars() {
-        hiddenCalendarIDs.removeAll()
-        persistHidden()
+    private func showCalendarFilter() {
+        filterPopover.show(relativeTo: calendarsButton.bounds, of: calendarsButton, preferredEdge: .maxY)
     }
 
     private func persistHidden() {

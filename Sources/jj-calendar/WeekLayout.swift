@@ -42,17 +42,34 @@ struct WeekRow {
 
 enum WeekMetrics {
     static let gutter: CGFloat = 26
-    /// 日期号行高.
-    static let header: CGFloat = 14
     static let bottomPad: CGFloat = 1
     /// 星期表头高度.
     static let columnHeader: CGFloat = 16
-    /// 事件行高范围: 空间足够取上限, 不足时压缩到下限, 再不足则折叠为 +N.
-    static let lineMax: CGFloat = 17
-    static let lineMin: CGFloat = 12
     static let minDayWidth: CGFloat = 64
     static let comfortableDayWidth: CGFloat = 140
     static let maxFlowColumns = 4
+}
+
+/// 用户字号 (⌘+ / ⌘-) 决定的行高; 排版不再自动放大字号.
+struct Typography: Equatable {
+    static let range: ClosedRange<CGFloat> = 8...16
+    static let standard: CGFloat = 10
+
+    let fontSize: CGFloat
+
+    init(fontSize: CGFloat) {
+        self.fontSize = min(max(fontSize, Self.range.lowerBound), Self.range.upperBound)
+    }
+
+    /// 事件行高.
+    var line: CGFloat {
+        (fontSize + 4).rounded()
+    }
+
+    /// 日期号行高.
+    var header: CGFloat {
+        (fontSize + 3).rounded()
+    }
 }
 
 /// 连续周网格: 从起始月 1 日所在周到结束月末日所在周, 月份之间不断行.
@@ -182,7 +199,7 @@ enum WeekLayout {
 }
 
 /// 一屏铺满、不滚动的排版: 周行自上而下连续, 一栏放不下时按阅读顺序续排到右侧下一栏.
-/// 栏数优先保证全部展示, 其次取「行高 × 日宽」可读性最优者; 行高按各周所需行数分配, 剩余空间均分, 不留空白.
+/// 栏数优先保证全部展示 (不出现 +N), 其次取日宽最大者; 剩余高度均分给各周.
 struct GridPlan {
     struct Placement {
         let frame: NSRect
@@ -192,18 +209,16 @@ struct GridPlan {
     }
 
     let columnFrames: [NSRect]
-    let lineHeight: CGFloat
     let placements: [Placement]
-
-    private static let fixed = WeekMetrics.header + WeekMetrics.bottomPad
 
     private struct Candidate {
         let score: CGFloat
         let chunks: [Range<Int>]
-        let line: CGFloat
     }
 
-    static func make(rows: [WeekRow], size: NSSize) -> GridPlan {
+    static func make(rows: [WeekRow], size: NSSize, typography: Typography) -> GridPlan {
+        let line = typography.line
+        let fixed = typography.header + WeekMetrics.bottomPad
         let height = size.height - WeekMetrics.columnHeader
         let fit = Int(size.width / (WeekMetrics.gutter + 7 * WeekMetrics.minDayWidth))
         let maxColumns = max(1, min(WeekMetrics.maxFlowColumns, rows.count, fit))
@@ -211,20 +226,22 @@ struct GridPlan {
         var best: Candidate?
         for columns in 1...maxColumns {
             let chunks = split(rows.count, into: columns)
-            let line = chunks.map { lineHeight(rows[$0], height: height) }.min() ?? WeekMetrics.lineMax
+            // 可展示比例: 各栏 (可用行数 / 所需行数) 的最小值.
+            let shown = chunks.map { chunk -> CGFloat in
+                let needed = rows[chunk].reduce(0) { $0 + $1.lines }
+                guard needed > 0 else { return 1 }
+                let available = ((height - CGFloat(chunk.count) * fixed) / line).rounded(.down)
+                return min(max(available, 0) / CGFloat(needed), 1)
+            }.min() ?? 1
             let dayWidth = (size.width / CGFloat(chunks.count) - WeekMetrics.gutter) / 7
-            // 折叠 (+N) 代价远高于截断: 可展示比例 4 次方惩罚, 其次行高 × 日宽.
-            let shown = min(line / WeekMetrics.lineMin, 1)
-            let score = pow(shown, 4) * min(line, WeekMetrics.lineMax) / WeekMetrics.lineMax
-                * min(dayWidth / WeekMetrics.comfortableDayWidth, 1)
+            // 折叠 (+N) 代价远高于截断: 可展示比例 4 次方, 其次日宽.
+            let score = pow(shown, 4) * min(dayWidth / WeekMetrics.comfortableDayWidth, 1)
             if best == nil || score > best!.score + 0.001 {
-                best = Candidate(score: score, chunks: chunks, line: line)
+                best = Candidate(score: score, chunks: chunks)
             }
         }
-        guard let best else { return GridPlan(columnFrames: [], lineHeight: WeekMetrics.lineMax, placements: []) }
+        guard let best else { return GridPlan(columnFrames: [], placements: []) }
 
-        // 0.5pt 量化: 窗口拖动时行高不会逐帧变化, 避免反复重建事件视图.
-        let line = (min(max(best.line, WeekMetrics.lineMin), WeekMetrics.lineMax) * 2).rounded(.down) / 2
         var columnFrames: [NSRect] = []
         var placements: [Placement] = []
         for (index, chunk) in best.chunks.enumerated() {
@@ -247,14 +264,7 @@ struct GridPlan {
                 ))
             }
         }
-        return GridPlan(columnFrames: columnFrames, lineHeight: line, placements: placements)
-    }
-
-    /// 一栏内所有周完整展示时可得的行高; 无事件 = 不受限.
-    private static func lineHeight(_ rows: ArraySlice<WeekRow>, height: CGFloat) -> CGFloat {
-        let lines = rows.reduce(0) { $0 + $1.lines }
-        guard lines > 0 else { return .greatestFiniteMagnitude }
-        return (height - CGFloat(rows.count) * fixed) / CGFloat(lines)
+        return GridPlan(columnFrames: columnFrames, placements: placements)
     }
 
     /// 行数分配 (water-filling): 求最大上限 c 使 Σmin(需求, c) ≤ budget, 余量逐行补给超限周;
