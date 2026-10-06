@@ -7,6 +7,18 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.5] - 2026-10-06
+
+### Changed
+
+- 时长 / 每行天数 / 字号 / 忽略背景色 改存 `~/.config/jj-calendar/config.jsonc`, 带中文说明, 可手工修改 (重启生效)
+  - `AppConfig` = 界面选项, 操作时整文件重写 (带 `configNotes`); `AppState` 只剩隐藏 / 忽略日历 + 窗口; 两份文件共用 `PersistedFile`
+
+### Removed
+
+- 去掉 0.3.3 的颜色 / 不透明度配置: 颜色跟随系统日历
+  - 删 `AppConfig.appearance` / `layout` / `NSColor(hex:)`; 恢复固定常量
+
 ## [0.3.4] - 2026-10-06
 
 ### Added
