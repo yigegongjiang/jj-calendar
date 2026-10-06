@@ -1,7 +1,7 @@
 import AppKit
 
 /// 日历筛选面板 (popover): 复选框可连续勾选, 面板不关闭; 「只显示」按钮 / ⌥ 点击某日历 = 只显示它.
-/// 已忽略的日历: 置底淡化; 全部显示不勾选它们, 全部隐藏 / 只显示 照常隐藏它们.
+/// 已忽略的日历: 置底淡化; 忽略时即隐藏, 全部显示不勾选它们, 只能手动勾选显示.
 final class CalendarFilterController: NSViewController {
     var onChange: ((_ hidden: Set<String>, _ ignored: Set<String>) -> Void)?
 
@@ -117,7 +117,7 @@ final class CalendarFilterController: NSViewController {
         only.setAccessibilityLabel("只显示 \(summary.title)")
         let ignore = pushButton("忽略", size: .mini, action: #selector(toggleIgnored(_:)))
         ignore.identifier = checkbox.identifier
-        ignore.toolTip = "移到「已忽略」: 淡化显示, 不参与全部显示"
+        ignore.toolTip = "移到「已忽略」: 立即隐藏, 不参与全部显示; 手动勾选才显示 (淡化)"
         ignore.setAccessibilityLabel("忽略 \(summary.title)")
         return [checkbox, only, ignore]
     }
@@ -192,6 +192,7 @@ final class CalendarFilterController: NSViewController {
         guard let id = sender.identifier?.rawValue else { return }
         if ignored.remove(id) == nil {
             ignored.insert(id)
+            hidden.insert(id)
         }
         rebuild()
         onChange?(hidden, ignored)
