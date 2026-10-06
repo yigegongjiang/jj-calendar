@@ -42,22 +42,20 @@ struct DayInfo {
 
 /// 每行展示天数; 每月 1 日总在行首, 月末不足一行留空.
 enum RowSpan: Int, CaseIterable {
-    case week, twoWeeks, month
+    case week, twoWeeks
 
     var title: String {
         switch self {
         case .week: "一周"
         case .twoWeeks: "两周"
-        case .month: "一月"
         }
     }
 
-    /// 每行格数; 一月固定 31 格, 各月同日上下对齐.
+    /// 每行格数.
     var columns: Int {
         switch self {
         case .week: 7
         case .twoWeeks: 14
-        case .month: 31
         }
     }
 }

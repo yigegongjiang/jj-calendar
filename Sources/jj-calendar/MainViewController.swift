@@ -1,7 +1,7 @@
 import AppKit
 import EventKit
 
-/// 主界面: 起始年月 + 时长 -> 单栏网格展示区间内全部日程; 每行一周 / 两周 / 一月, 拥挤时纵向滚动.
+/// 主界面: 起始年月 + 时长 -> 单栏网格展示区间内全部日程; 每行一周 / 两周, 拥挤时纵向滚动.
 final class MainViewController: NSViewController {
     private enum Key {
         /// 时长 (月数); 起始月不持久化, 每次启动为本月.
@@ -145,7 +145,7 @@ final class MainViewController: NSViewController {
         rowSpanControl.setAccessibilityIdentifier("rowSpanControl")
         rowSpanControl.target = self
         rowSpanControl.action = #selector(rowSpanChanged)
-        rowSpanControl.selectedSegment = defaults.integer(forKey: Key.rowSpan)
+        rowSpanControl.selectedSegment = (RowSpan(rawValue: defaults.integer(forKey: Key.rowSpan)) ?? .week).rawValue
         monthTintToggle.setAccessibilityIdentifier("monthTintToggle")
         monthTintToggle.target = self
         monthTintToggle.action = #selector(monthTintToggled)

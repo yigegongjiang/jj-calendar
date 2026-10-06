@@ -1,6 +1,6 @@
 import AppKit
 
-/// 一行: 日期格 (7 / 14 / 28–31 个, 月末不足一行时右侧留空) + 事件 chip; 容量不足时日期格显示 +N, 悬停列出未显示日程.
+/// 一行: 日期格 (7 / 14 个, 月末不足一行时右侧留空) + 事件 chip; 容量不足时日期格显示 +N, 悬停列出未显示日程.
 final class WeekRowView: NSView {
     struct Config: Equatable {
         let generation: Int
@@ -206,7 +206,7 @@ final class DayCellView: NSView {
             .foregroundColor: isWeekend ? NSColor.systemRed.withAlphaComponent(info.isPast ? 0.5 : 0.85)
                 : NSColor.tertiaryLabelColor
         ])
-        // 窄格 (一月模式) 优先保留 +N: 星期放不下则省略, +N 底色盖住溢出的日期.
+        // 窄格优先保留 +N: 星期放不下则省略, +N 底色盖住溢出的日期.
         let moreX = drawMore(background: background)
         let weekdayX = origin.x + size.width + (info.isToday ? 5 : 2)
         if weekdayX + weekday.size().width <= moreX {
@@ -237,7 +237,7 @@ final class EventChipView: NSView {
     private let event: CalendarEvent
     private let style: Style
     private let text: NSAttributedString
-    /// 仅标题; 窄格 (一月模式) 放不下「时间 + 几个字」时改用, 保证标题可见.
+    /// 仅标题; 窄格放不下「时间 + 几个字」时改用, 保证标题可见.
     private let titleText: NSAttributedString
     /// 低于此宽度用 titleText.
     private let compactWidth: CGFloat

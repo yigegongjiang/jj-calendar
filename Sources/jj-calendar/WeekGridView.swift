@@ -1,6 +1,6 @@
 import AppKit
 
-/// 列坐标: 宽度按行格数 (7 / 14 / 31) 等分.
+/// 列坐标: 宽度按行格数 (7 / 14) 等分.
 @MainActor
 enum WeekGeometry {
     static func columnX(_ col: Int, of columns: Int, width: CGFloat) -> CGFloat {
