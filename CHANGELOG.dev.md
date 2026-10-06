@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.12] - 2026-10-06
+
+### Fixed
+
+- 无标题日程不再显示「(无标题)」, 标题按系统日历原样显示 (含空格)
+  - `CalendarStore.snapshot`: `title` 直接取 `event.title ?? ""`, 去掉 trim + 占位
+
 ## [0.3.11] - 2026-10-06
 
 ### Fixed

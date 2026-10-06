@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.3.12] - 2026-10-06
+
+### Fixed
+
+- 无标题日程不再显示「(无标题)」, 标题按系统日历原样显示 (含空格)
+
 ## [0.3.11] - 2026-10-06
 
 ### Fixed
