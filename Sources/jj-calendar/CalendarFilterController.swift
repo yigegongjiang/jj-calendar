@@ -1,7 +1,7 @@
 import AppKit
 
 /// 日历筛选面板 (popover): 复选框可连续勾选, 面板不关闭; 「只显示」按钮 / ⌥ 点击某日历 = 只显示它.
-/// 已忽略的日历: 置底淡化, 全部显示 / 全部隐藏 / 只显示 均不改动其勾选状态.
+/// 已忽略的日历: 置底淡化; 全部显示不勾选它们, 全部隐藏 / 只显示 照常隐藏它们.
 final class CalendarFilterController: NSViewController {
     var onChange: ((_ hidden: Set<String>, _ ignored: Set<String>) -> Void)?
 
@@ -57,7 +57,7 @@ final class CalendarFilterController: NSViewController {
         }
         let ignoredItems = calendars.filter { ignored.contains($0.id) }.sorted { $0.title < $1.title }
         if !ignoredItems.isEmpty {
-            addMergedRow(header("已忽略 (不参与全部显示 / 隐藏)"), to: grid, topPadding: 10)
+            addMergedRow(header("已忽略 (不参与全部显示)"), to: grid, topPadding: 10)
             for summary in ignoredItems {
                 // 「取消忽略」横跨两列按钮, 避免撑宽「忽略」列.
                 let row = grid.addRow(with: calendarRow(summary))
@@ -117,7 +117,7 @@ final class CalendarFilterController: NSViewController {
         only.setAccessibilityLabel("只显示 \(summary.title)")
         let ignore = pushButton("忽略", size: .mini, action: #selector(toggleIgnored(_:)))
         ignore.identifier = checkbox.identifier
-        ignore.toolTip = "移到「已忽略」: 淡化显示, 不参与全部显示 / 隐藏"
+        ignore.toolTip = "移到「已忽略」: 淡化显示, 不参与全部显示"
         ignore.setAccessibilityLabel("忽略 \(summary.title)")
         return [checkbox, only, ignore]
     }
@@ -197,25 +197,25 @@ final class CalendarFilterController: NSViewController {
         onChange?(hidden, ignored)
     }
 
-    /// 批量操作只作用于未忽略的日历; 已忽略的保持原状态.
-    private var activeIDs: Set<String> {
-        Set(calendars.map(\.id)).subtracting(ignored)
+    private var allIDs: Set<String> {
+        Set(calendars.map(\.id))
     }
 
     private func showOnly(_ id: String) {
-        hidden = hidden.intersection(ignored).union(activeIDs.subtracting([id]))
+        hidden = allIDs.subtracting([id])
         commit()
     }
 
+    /// 只勾选未忽略的日历; 已忽略的保持原状态.
     @objc
     private func showAll() {
-        hidden.subtract(activeIDs)
+        hidden.subtract(allIDs.subtracting(ignored))
         commit()
     }
 
     @objc
     private func hideAll() {
-        hidden.formUnion(activeIDs)
+        hidden = allIDs
         commit()
     }
 
