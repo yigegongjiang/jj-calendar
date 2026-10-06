@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.4] - 2026-10-06
+
+### Added
+
+- 日历筛选面板新增「忽略」: 被忽略的日历移到底部「已忽略」组并淡化, 全部显示 / 全部隐藏 / 只显示不再改动它们; 其日程在日历中淡化且排在同格最后
+  - `AppState.ignoredCalendarIDs` 持久化; `CalendarEvent.isIgnored` 在 `relayout` 标记; `WeekLayout` 排序置后; 不透明度 `appearance.ignoredOpacity` (默认 0.3); 「隐藏 N」不计已忽略
+
 ## [0.3.3] - 2026-10-06
 
 ### Added
