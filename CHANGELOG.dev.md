@@ -7,6 +7,22 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.0] - 2026-10-06
+
+### Added
+
+- 标题栏右侧新增「一周 / 两周 / 一月」: 选择每行展示的天数, 设置自动记住; 一月模式各月同一日上下对齐
+  - `RowSpan` (columns 7 / 14 / 31) + `NSSegmentedControl` `rowSpanControl`; key `rowSpan`
+
+### Changed
+
+- 固定单栏, 不再左右分栏; 每月 1 日总在行首, 月末不足一行留空
+  - `WeekLayout.build(span:)` 按月切行, 行内列数可变; 删 `grid(for:)`, 读取区间 = 月份区间; 删多栏 `GridPlan` 候选
+- 内容拥挤 (每行放不下 3 条日程) 时改为完整展示 + 上下滚动; 不拥挤时铺满窗口, 无滚动条与回弹
+  - `WeekMetrics.minLinesBeforeScroll = 3`; `WeekGridView` 内置 `NSScrollView`, 不滚动时 `verticalScrollElasticity = .none`; 起始日 / 模式变化回顶
+- 星期改显示在每个日期格内 (周末红色), 去掉顶部星期表头; 窄格只显示日程标题, +N 优先显示
+  - 删 `WeekdayHeaderView`; `DayCellView` 画星期 + `drawMore`; `EventChipView.compactWidth` 以下用 `titleText`
+
 ## [0.2.10] - 2026-10-06
 
 ### Changed
