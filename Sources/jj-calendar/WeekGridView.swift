@@ -174,21 +174,23 @@ final class WeekGridView: NSView {
         needsLayout = true
     }
 
-    /// 点击同一天 = 关闭 (后台时 transient popover 不会因外部点击关闭); 其他天 = 切换内容并移动.
+    /// 点击同一天 / 无日程的天 = 关闭 (后台时 transient popover 不会因外部点击关闭); 其他天 = 切换内容并移动.
     private func toggleDay(row: Int, col: Int, anchor: NSView) {
         guard rows.indices.contains(row), rows[row].days.indices.contains(col) else { return }
         let day = rows[row].days[col]
+        let items = rows[row].items(at: col)
         let closed = closedByClick
         closedByClick = nil
-        if dayPopover.isShown, dayDetail.date == day.date {
+        if dayPopover.isShown, items.isEmpty || dayDetail.date == day.date {
             dayPopover.performClose(nil)
             return
         }
+        guard !items.isEmpty else { return }
         if let closed, closed.date == day.date, let event = NSApp.currentEvent, event.type == .leftMouseDown,
            event.timestamp == closed.timestamp {
             return
         }
-        dayDetail.update(day: day, items: rows[row].items(at: col), calendar: calendar)
+        dayDetail.update(day: day, items: items, calendar: calendar)
         dayPopover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxX)
     }
 
