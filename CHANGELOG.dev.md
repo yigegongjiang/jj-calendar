@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.3] - 2026-10-06
+
+### Changed
+
+- 跟随版本同步发布
+  - 年 / 月 popup AX value 可写 (SettablePopUpButton cell 覆写 setAccessibilityValue), 自动化后台切换区间, 无需弹菜单
+
 ## [0.2.2] - 2026-10-06
 
 ### Changed
