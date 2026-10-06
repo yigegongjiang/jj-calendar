@@ -1,0 +1,8 @@
+build/
+AGENTS.override.md
+CLAUDE.local.md
+.DS_Store
+xcuserdata/
+/worktree/
+/.mcp.json
+/.codex/
