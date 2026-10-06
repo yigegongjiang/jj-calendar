@@ -3,8 +3,11 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
+    private var frameObservers: [NSObjectProtocol] = []
+    private var pendingFrameSave: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_: Notification) {
+        ConfigStore.load()
         let controller = MainViewController()
         NSApp.mainMenu = makeMainMenu(fontTarget: controller)
 
@@ -15,13 +18,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = DebugInstance.tag.map { "\(appName) · \($0)" } ?? appName
+        window.subtitle = ConfigStore.failure ?? ""
         window.contentMinSize = NSSize(width: 720, height: 400)
         window.contentViewController = controller
         window.addTitlebarAccessoryViewController(controller.titlebarAccessory)
         window.isReleasedWhenClosed = false
-        window.center()
-        // 记住窗口位置 / 尺寸 (常用最大化).
-        window.setFrameAutosaveName("main")
+        restoreFrame(window)
         self.window = window
         // Debug 实例 (debug.sh 后台启动) 置于所有窗口之后且不激活: 不遮挡 / 不打断正在使用的 App.
         if DebugInstance.tag == nil {
@@ -34,6 +36,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
         true
+    }
+
+    /// 窗口位置 / 尺寸 (常用最大化) 存 state.json; 已不在任何屏幕内则居中.
+    private func restoreFrame(_ window: NSWindow) {
+        if let saved = ConfigStore.state.window {
+            let frame = NSRect(x: saved.minX, y: saved.minY, width: saved.width, height: saved.height)
+            if NSScreen.screens.contains(where: { $0.visibleFrame.intersects(frame) }) {
+                window.setFrame(frame, display: false)
+            } else {
+                window.center()
+            }
+        } else {
+            window.center()
+        }
+        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+            frameObservers.append(NotificationCenter.default.addObserver(
+                forName: name, object: window, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.scheduleFrameSave() }
+            })
+        }
+    }
+
+    /// 拖动 / 缩放过程中连续触发, 停止 0.5 秒后再写入.
+    private func scheduleFrameSave() {
+        pendingFrameSave?.cancel()
+        pendingFrameSave = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled, let frame = self?.window?.frame else { return }
+            ConfigStore.update {
+                $0.window = WindowFrame(minX: frame.minX, minY: frame.minY, width: frame.width, height: frame.height)
+            }
+        }
     }
 
     private var appName: String {

@@ -23,3 +23,5 @@ macOS 日历查看器 (只读).
 
 - Swift 6 + AppKit, macOS 14+, 纯代码 UI; NEVER SwiftUI; 无第三方依赖
 - 新增按钮 / 开关统一放标题栏右侧 (`MainViewController.titlebarAccessory` stack)
+- 持久化: `~/.config/jj-calendar/state.json` (Debug: `.app` 同级 `debug-config/`, 每份构建独立); 界面状态 (时长 / 行跨度 / 字号 / 背景色 / 隐藏日历 / 窗口位置); 启动读取 + 界面操作写入; 缺失键取默认; 解析失败停写 + 窗口副标题提示
+- MUST NOT 使用 `UserDefaults` / `setFrameAutosaveName`; 新增持久化项加入 `AppState`

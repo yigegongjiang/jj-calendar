@@ -3,17 +3,7 @@ import EventKit
 
 /// 主界面: 起始年月 + 时长 -> 单栏网格展示区间内全部日程; 每行一周 / 两周, 拥挤时纵向滚动.
 final class MainViewController: NSViewController {
-    private enum Key {
-        /// 时长 (月数); 起始月不持久化, 每次启动为本月.
-        static let months = "range.months"
-        static let hiddenCalendars = "hiddenCalendarIDs"
-        static let fontSize = "fontSize"
-        static let ignoreMonthTint = "ignoreMonthTint"
-        static let rowSpan = "rowSpan"
-    }
-
     private let store = CalendarStore()
-    private let defaults = UserDefaults.standard
 
     private let startYearPopup = SettablePopUpButton()
     private let startMonthPopup = SettablePopUpButton()
@@ -60,7 +50,7 @@ final class MainViewController: NSViewController {
     private let observers = ObserverTokens()
 
     init() {
-        hiddenCalendarIDs = Set(UserDefaults.standard.stringArray(forKey: Key.hiddenCalendars) ?? [])
+        hiddenCalendarIDs = Set(ConfigStore.state.hiddenCalendarIDs)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -145,7 +135,7 @@ final class MainViewController: NSViewController {
         rowSpanControl.setAccessibilityIdentifier("rowSpanControl")
         rowSpanControl.target = self
         rowSpanControl.action = #selector(rowSpanChanged)
-        rowSpanControl.selectedSegment = (RowSpan(rawValue: defaults.integer(forKey: Key.rowSpan)) ?? .week).rawValue
+        rowSpanControl.selectedSegment = (RowSpan(rawValue: ConfigStore.state.rowSpan) ?? .week).rawValue
         monthTintToggle.setAccessibilityIdentifier("monthTintToggle")
         monthTintToggle.target = self
         monthTintToggle.action = #selector(monthTintToggled)
@@ -153,11 +143,10 @@ final class MainViewController: NSViewController {
             control.controlSize = .small
             control.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         }
-        let ignoreTint = defaults.bool(forKey: Key.ignoreMonthTint)
+        let ignoreTint = ConfigStore.state.ignoreMonthTint
         monthTintToggle.state = ignoreTint ? .on : .off
         gridView.monthTint = !ignoreTint
-        let savedFont = defaults.object(forKey: Key.fontSize) as? Double
-        applyFontSize(savedFont.map { CGFloat($0) } ?? Typography.standard)
+        applyFontSize(ConfigStore.state.fontSize)
         summaryLabel.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         summaryLabel.textColor = .secondaryLabelColor
         summaryLabel.lineBreakMode = .byTruncatingTail
@@ -167,13 +156,13 @@ final class MainViewController: NSViewController {
     @objc
     private func monthTintToggled() {
         let ignoreTint = monthTintToggle.state == .on
-        defaults.set(ignoreTint, forKey: Key.ignoreMonthTint)
+        ConfigStore.update { $0.ignoreMonthTint = ignoreTint }
         gridView.monthTint = !ignoreTint
     }
 
     @objc
     private func rowSpanChanged() {
-        defaults.set(rowSpanControl.selectedSegment, forKey: Key.rowSpan)
+        ConfigStore.update { $0.rowSpan = rowSpan.rawValue }
         relayout()
     }
 
@@ -306,12 +295,8 @@ extension MainViewController {
     private func restoreRange() {
         currentMonth = Self.thisMonth(calendar)
         start = currentMonth
-        let saved = defaults.integer(forKey: Key.months)
+        let saved = ConfigStore.state.months
         months = Self.durations.contains { $0.0 == saved } ? saved : 3
-        // v0.2.x: 起止年月持久化.
-        for legacy in ["range.start", "range.end", "range.year", "range.startMonth", "range.endMonth"] {
-            defaults.removeObject(forKey: legacy)
-        }
     }
 
     /// 跨天: 跨月且起始月仍是旧本月 -> 起始月跟随; 年份候选 / 「今天」随之刷新.
@@ -330,7 +315,7 @@ extension MainViewController {
     private func rangeChanged(_: NSPopUpButton) {
         start = YearMonth(year: startYearPopup.selectedTag(), month: startMonthPopup.indexOfSelectedItem + 1)
         months = durationPopup.selectedTag()
-        defaults.set(months, forKey: Key.months)
+        ConfigStore.update { [months] in $0.months = months }
         syncRangeControls()
         reload()
     }
@@ -357,7 +342,7 @@ extension MainViewController {
     private func applyFontSize(_ size: CGFloat) {
         let typography = Typography(fontSize: size)
         gridView.typography = typography
-        defaults.set(Double(typography.fontSize), forKey: Key.fontSize)
+        ConfigStore.update { $0.fontSize = Double(typography.fontSize) }
     }
 }
 
@@ -381,7 +366,7 @@ extension MainViewController {
     }
 
     private func persistHidden() {
-        defaults.set(hiddenCalendarIDs.sorted(), forKey: Key.hiddenCalendars)
+        ConfigStore.update { [hiddenCalendarIDs] in $0.hiddenCalendarIDs = hiddenCalendarIDs.sorted() }
         if let snapshot {
             rebuildCalendarsMenu(snapshot.calendars)
         }
