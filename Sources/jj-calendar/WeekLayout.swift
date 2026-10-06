@@ -38,9 +38,6 @@ struct DayInfo {
     let weekday: Int
     let isToday: Bool
     let isPast: Bool
-    /// 月界阶梯线: 上方格属上月 (顶边) / 左侧格属上月且同行 (左边, 仅 1 日).
-    var monthEdgeTop = false
-    var monthEdgeLeading = false
 }
 
 /// 每行展示天数; 列固定周一起 (7 / 14 列), 日期连续排列 (月与月首尾衔接).
@@ -205,15 +202,11 @@ enum WeekLayout {
         for index in 0..<totalDays {
             let date = calendar.date(byAdding: .day, value: index, to: range.start)!
             let parts = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
-            let column = (firstColumn + index) % span.columns
-            var info = DayInfo(
+            days.append(DayInfo(
                 date: date, day: parts.day!, month: parts.month!, year: parts.year!, weekday: parts.weekday!,
                 isToday: date == today, isPast: date < today
-            )
-            // 网格连续: 上方格 = index - columns.
-            info.monthEdgeTop = index >= span.columns && days[index - span.columns].month != info.month
-            info.monthEdgeLeading = info.day == 1 && index > 0 && column != 0
-            days.append(info)
+            ))
+            let column = (firstColumn + index) % span.columns
             if index == 0 || column == 0 {
                 starts.append((index, column))
             }

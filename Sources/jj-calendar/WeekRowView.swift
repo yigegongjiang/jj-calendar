@@ -130,7 +130,7 @@ final class WeekRowView: NSView {
     }
 }
 
-/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日强调色实心标签「N月1日」) + 月界阶梯线 + 折叠数 +N; 星期见表头.
+/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日强调色实心标签「N月1日」) + 折叠数 +N; 星期见表头.
 final class DayCellView: NSView {
     private var info: DayInfo?
     private var hiddenCount = 0
@@ -186,7 +186,6 @@ final class DayCellView: NSView {
         if drawsLeadingEdge {
             NSRect(x: 0, y: 0, width: 1, height: bounds.height).fill()
         }
-        drawMonthEdges(info)
 
         let isWeekend = info.weekday == 1 || info.weekday == 7
         let isFirst = info.day == 1
@@ -214,21 +213,8 @@ final class DayCellView: NSView {
         drawMore(background: background)
     }
 
-    /// 月界强调色.
+    /// 1 日标签底色.
     private static let monthColor = NSColor.controlAccentColor
-    /// 月界线粗细.
-    private static let monthEdgeWidth: CGFloat = 3
-
-    /// 月界阶梯线: 新月首周各格顶边 + 1 日左边; 连成一条折线把两个月分开.
-    private func drawMonthEdges(_ info: DayInfo) {
-        Self.monthColor.setFill()
-        if info.monthEdgeTop {
-            NSRect(x: 0, y: 0, width: bounds.width, height: Self.monthEdgeWidth).fill()
-        }
-        if info.monthEdgeLeading {
-            NSRect(x: 0, y: 0, width: Self.monthEdgeWidth, height: bounds.height).fill()
-        }
-    }
 
     /// 折叠数 +N 靠右; 底色盖住窄格溢出的日期.
     private func drawMore(background: NSColor) {
