@@ -11,6 +11,16 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.2.5] - 2026-10-06
+
+### Added
+
+- 标题栏右侧新增「忽略背景色」开关: 关闭月份交替底色, 设置自动记住
+
+### Removed
+
+- 月份分界线 (月份已由交替底色区分)
+
 ## [0.2.4] - 2026-10-06
 
 ### Added

@@ -7,6 +7,18 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.5] - 2026-10-06
+
+### Added
+
+- 标题栏右侧新增「忽略背景色」开关: 关闭月份交替底色, 设置自动记住
+  - `NSTitlebarAccessoryViewController` (.trailing) + stack 作为后续按钮容器; UserDefaults `ignoreMonthTint`; `WeekRowView.Config.monthTint`
+
+### Removed
+
+- 月份分界线 (月份已由交替底色区分)
+  - 删 `DayCellView.draw` 的 tertiaryLabelColor 阶梯线; `SettablePopUpButton` 拆为独立文件 (file_length)
+
 ## [0.2.4] - 2026-10-06
 
 ### Added
