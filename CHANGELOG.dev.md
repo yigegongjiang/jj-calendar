@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.9] - 2026-10-06
+
+### Fixed
+
+- 「全部隐藏」/「只显示」同时隐藏已忽略的日历, 不再残留其日程; 「全部显示」仍不勾选已忽略的日历
+  - `CalendarFilterController.hideAll` / `showOnly` 作用于全部日历; `showAll` 仍排除 `ignored`
+
 ## [0.3.8] - 2026-10-06
 
 ### Changed
