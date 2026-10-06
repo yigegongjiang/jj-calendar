@@ -19,7 +19,8 @@
 ./scripts/debug.sh quit                                      # 退出本 worktree 实例 (删 worktree 前执行)
 ```
 
-验证: peekaboo; 界面变更截图覆盖 时长 3 / 6 / 12 / 21 个月 (跨年) × 横屏 / 竖屏 × 全部 / 部分日历
+- 使用 peekaboo, 以 debug.sh 输出的 pid 定位本 worktree 实例 (多 worktree 实例并存);
+- 界面变更截图覆盖 时长 3 / 6 / 12 / 21 个月 (跨年) × 横屏 / 竖屏 × 全部 / 部分日历
 
 # 发布
 
