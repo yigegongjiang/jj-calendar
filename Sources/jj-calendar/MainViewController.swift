@@ -271,7 +271,7 @@ final class MainViewController: NSViewController {
 extension MainViewController {
     private static let durations = [
         (1, "1 个月"), (3, "3 个月"), (6, "半年"), (9, "9 个月"),
-        (12, "1 年"), (15, "1 年 3 个月"), (18, "1 年半"), (21, "1 年 9 个月")
+        (12, "1 年"), (15, "1 年 3 个月"), (18, "1 年半"), (21, "1 年 9 个月"), (24, "2 年")
     ]
 
     private static func thisMonth(_ calendar: Calendar) -> YearMonth {
