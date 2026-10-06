@@ -18,7 +18,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = DebugInstance.tag.map { "\(appName) · \($0)" } ?? appName
-        _ = AppConfig.current
         window.subtitle = ConfigStore.warnings
         window.contentMinSize = NSSize(width: 720, height: 400)
         window.contentViewController = controller

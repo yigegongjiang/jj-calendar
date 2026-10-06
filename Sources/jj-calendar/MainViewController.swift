@@ -138,7 +138,7 @@ final class MainViewController: NSViewController {
         rowSpanControl.setAccessibilityIdentifier("rowSpanControl")
         rowSpanControl.target = self
         rowSpanControl.action = #selector(rowSpanChanged)
-        rowSpanControl.selectedSegment = (RowSpan(rawValue: ConfigStore.state.rowSpan) ?? .week).rawValue
+        rowSpanControl.selectedSegment = (RowSpan(rawValue: ConfigStore.config.rowSpan) ?? .week).rawValue
         monthTintToggle.setAccessibilityIdentifier("monthTintToggle")
         monthTintToggle.target = self
         monthTintToggle.action = #selector(monthTintToggled)
@@ -146,10 +146,10 @@ final class MainViewController: NSViewController {
             control.controlSize = .small
             control.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         }
-        let ignoreTint = ConfigStore.state.ignoreMonthTint
+        let ignoreTint = ConfigStore.config.ignoreMonthTint
         monthTintToggle.state = ignoreTint ? .on : .off
         gridView.monthTint = !ignoreTint
-        applyFontSize(ConfigStore.state.fontSize)
+        applyFontSize(ConfigStore.config.fontSize)
         summaryLabel.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         summaryLabel.textColor = .secondaryLabelColor
         summaryLabel.lineBreakMode = .byTruncatingTail
@@ -159,13 +159,13 @@ final class MainViewController: NSViewController {
     @objc
     private func monthTintToggled() {
         let ignoreTint = monthTintToggle.state == .on
-        ConfigStore.update { $0.ignoreMonthTint = ignoreTint }
+        ConfigStore.updateConfig { $0.ignoreMonthTint = ignoreTint }
         gridView.monthTint = !ignoreTint
     }
 
     @objc
     private func rowSpanChanged() {
-        ConfigStore.update { $0.rowSpan = rowSpan.rawValue }
+        ConfigStore.updateConfig { $0.rowSpan = rowSpan.rawValue }
         relayout()
     }
 
@@ -303,7 +303,7 @@ extension MainViewController {
     private func restoreRange() {
         currentMonth = Self.thisMonth(calendar)
         start = currentMonth
-        let saved = ConfigStore.state.months
+        let saved = ConfigStore.config.months
         months = Self.durations.contains { $0.0 == saved } ? saved : 3
     }
 
@@ -323,7 +323,7 @@ extension MainViewController {
     private func rangeChanged(_: NSPopUpButton) {
         start = YearMonth(year: startYearPopup.selectedTag(), month: startMonthPopup.indexOfSelectedItem + 1)
         months = durationPopup.selectedTag()
-        ConfigStore.update { [months] in $0.months = months }
+        ConfigStore.updateConfig { [months] in $0.months = months }
         syncRangeControls()
         reload()
     }
@@ -350,7 +350,7 @@ extension MainViewController {
     private func applyFontSize(_ size: CGFloat) {
         let typography = Typography(fontSize: size)
         gridView.typography = typography
-        ConfigStore.update { $0.fontSize = Double(typography.fontSize) }
+        ConfigStore.updateConfig { $0.fontSize = Double(typography.fontSize) }
     }
 }
 

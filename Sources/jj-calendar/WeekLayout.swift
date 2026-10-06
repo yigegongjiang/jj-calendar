@@ -87,9 +87,7 @@ struct WeekRow {
 enum WeekMetrics {
     static let bottomPad: CGFloat = 1
     /// 滚动阈值: 铺满视口时每行至少展示 min(所需, 本值) 行事件; 做不到 -> 改为完整高度 + 纵向滚动.
-    @MainActor static var minLinesBeforeScroll: Int {
-        AppConfig.current.layout.minLinesBeforeScroll
-    }
+    static let minLinesBeforeScroll = 3
 }
 
 /// 用户字号 (⌘+ / ⌘-) 决定的行高; 排版不再自动放大字号.
@@ -271,7 +269,6 @@ struct GridPlan {
     let scrolls: Bool
     let placements: [Placement]
 
-    @MainActor
     static func make(rows: [WeekRow], size: NSSize, typography: Typography) -> GridPlan {
         let line = typography.line
         let fixed = typography.header + WeekMetrics.bottomPad

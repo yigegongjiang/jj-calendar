@@ -168,12 +168,8 @@ final class DayCellView: NSView {
 
     override func draw(_: NSRect) {
         guard let info else { return }
-        let appearance = AppConfig.current.appearance
         let background: NSColor = if monthTint, info.month.isMultiple(of: 2) {
-            NSColor.controlBackgroundColor.blended(
-                withFraction: appearance.monthTintOpacity,
-                of: .config(appearance.monthTintColor, fallback: .labelColor)
-            ) ?? .controlBackgroundColor
+            NSColor.controlBackgroundColor.blended(withFraction: 0.025, of: .labelColor) ?? .controlBackgroundColor
         } else {
             .controlBackgroundColor
         }
@@ -198,18 +194,16 @@ final class DayCellView: NSView {
         let size = label.size()
         let origin = NSPoint(x: 4, y: 1)
         if info.isToday {
-            NSColor.config(appearance.todayColor, fallback: .systemRed).setFill()
+            NSColor.systemRed.setFill()
             NSBezierPath(
                 roundedRect: NSRect(x: origin.x - 3, y: origin.y, width: size.width + 6, height: size.height),
                 xRadius: size.height / 2, yRadius: size.height / 2
             ).fill()
         }
         label.draw(at: origin)
-        let weekendColor = NSColor.config(appearance.weekendColor, fallback: .systemRed)
         let weekday = NSAttributedString(string: Self.weekdays[info.weekday - 1], attributes: [
             .font: NSFont.systemFont(ofSize: fontSize - 1.5),
-            .foregroundColor: isWeekend
-                ? weekendColor.withAlphaComponent(weekendColor.alphaComponent * (info.isPast ? 0.5 : 0.85))
+            .foregroundColor: isWeekend ? NSColor.systemRed.withAlphaComponent(info.isPast ? 0.5 : 0.85)
                 : NSColor.tertiaryLabelColor
         ])
         // 窄格优先保留 +N: 星期放不下则省略, +N 底色盖住溢出的日期.
@@ -225,7 +219,7 @@ final class DayCellView: NSView {
         guard hiddenCount > 0 else { return bounds.width }
         let more = NSAttributedString(string: "+\(hiddenCount)", attributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize - 0.5, weight: .bold),
-            .foregroundColor: NSColor.config(AppConfig.current.appearance.moreColor, fallback: .systemOrange)
+            .foregroundColor: NSColor.systemOrange
         ])
         let size = more.size()
         let x = bounds.width - size.width - 4
@@ -283,8 +277,7 @@ final class EventChipView: NSView {
         titleText = title
         compactWidth = textX + prefix.size().width + fontSize * 3
         super.init(frame: .zero)
-        let appearance = AppConfig.current.appearance
-        alphaValue = event.isIgnored ? appearance.ignoredOpacity : dimmed ? appearance.pastOpacity : 1
+        alphaValue = event.isIgnored ? 0.3 : dimmed ? 0.6 : 1
         let detail = EventText.detail(event, calendar: calendar)
         toolTip = detail
         setAccessibilityElement(true)
@@ -306,8 +299,7 @@ final class EventChipView: NSView {
         switch style {
         case .bar:
             let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let appearance = AppConfig.current.appearance
-            color.withAlphaComponent(isDark ? appearance.barOpacityDark : appearance.barOpacityLight).setFill()
+            color.withAlphaComponent(isDark ? 0.4 : 0.25).setFill()
             NSBezierPath(roundedRect: bounds, xRadius: 3, yRadius: 3).fill()
             color.setFill()
             NSRect(x: 0, y: 0, width: 3, height: bounds.height).fill()

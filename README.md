@@ -23,8 +23,9 @@ macOS 日历查看器 (只读).
 
 - Swift 6 + AppKit, macOS 14+, 纯代码 UI; NEVER SwiftUI; 无第三方依赖
 - 新增按钮 / 开关统一放标题栏右侧 (`MainViewController.titlebarAccessory` stack)
-- 持久化: `~/.config/jj-calendar/` (Debug: `.app` 同级 `debug-config/`, 每份构建独立); 缺失键取默认; 问题以窗口副标题提示
-  - `config.jsonc`: 外观 (颜色 / 不透明度 / 滚动阈值); 手工编辑 (JSON5: 注释 + 尾逗号), 重启生效, App 只读; 解析失败用默认值, 越界收敛, 非法颜色取系统色
+- 持久化: `~/.config/jj-calendar/` (Debug: `.app` 同级 `debug-config/`, 每份构建独立); 启动读取; 缺失键取默认; 解析失败停写该文件 + 窗口副标题提示
+  - `config.jsonc`: 界面选项 (时长 / 每行天数 / 字号 / 忽略背景色); 逐键中文说明; 界面操作时整文件重写; 手工编辑 (JSON5) 重启生效
   - `config.default.jsonc`: 全部键默认值 + 说明, 启动刷新, 仅供查阅
-  - `state.json`: 界面状态 (时长 / 行跨度 / 字号 / 忽略背景色 / 隐藏日历 / 窗口位置); App 写入; 解析失败停写
-- MUST NOT 使用 `UserDefaults` / `setFrameAutosaveName`; 界面操作项 -> `AppState`, 外观常量 -> `AppConfig` + `configNotes`
+  - `state.json`: 界面状态 (隐藏 / 忽略日历 / 窗口位置)
+- MUST NOT 使用 `UserDefaults` / `setFrameAutosaveName`; 用户可理解的选项 -> `AppConfig` + `configNotes`, 其余 -> `AppState`
+- 颜色 MUST 跟随系统日历 / 系统色; NEVER 做颜色配置
