@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.3.1] - 2026-10-06
+
+### Removed
+
+- 去掉「一月」, 每行天数只保留「一周 / 两周」; 之前选了一月的自动改为一周
+
 ## [0.3.0] - 2026-10-06
 
 ### Added
