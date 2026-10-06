@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.4.2] - 2026-10-06
+
+### Fixed
+
+- 1 日标签 `-` 两侧加空格 (`2027 - 01 - 01`); 标签上方留白加大
+
 ## [0.4.1] - 2026-10-06
 
 ### Fixed

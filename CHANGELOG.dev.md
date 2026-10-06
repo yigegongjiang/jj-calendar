@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.4.2] - 2026-10-06
+
+### Fixed
+
+- 1 日标签 `-` 两侧加空格 (`2027 - 01 - 01`); 标签上方留白加大
+  - `DayCellView.draw`: 格式 `%04d - %02d - 01`, 标签 topPad 1pt; `Typography.header` +1
+
 ## [0.4.1] - 2026-10-06
 
 ### Fixed
