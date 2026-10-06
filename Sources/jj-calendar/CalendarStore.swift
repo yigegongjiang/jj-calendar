@@ -79,10 +79,9 @@ actor CalendarStore {
 
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
         let events = store.events(matching: predicate).map { event in
-            let title = event.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let location = event.location?.trimmingCharacters(in: .whitespacesAndNewlines)
             return CalendarEvent(
-                title: title.isEmpty ? "(无标题)" : title,
+                title: event.title ?? "",
                 start: event.startDate,
                 end: event.endDate,
                 isAllDay: event.isAllDay,
