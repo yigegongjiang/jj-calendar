@@ -1,6 +1,6 @@
 import AppKit
 
-/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日强调色实心标签「yyyy-MM-dd」); 星期见表头; 折叠数见同列「+N 项」.
+/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日强调色实心标签「MM-01」, 区间首月 / 1 月带年份「yyyy-MM-01」); 星期见表头; 折叠数见同列「+N 项」.
 final class DayCellView: NSView {
     private var info: DayInfo?
     private var fontSize = Typography.standard
@@ -63,8 +63,10 @@ final class DayCellView: NSView {
 
         let isWeekend = info.weekday == 1 || info.weekday == 7
         let isFirst = info.day == 1
-        // 1 日: 实心强调色标签, yyyy-MM-dd (带年份便于跨年辨认).
-        let text = isFirst ? String(format: "%04d-%02d-01", info.year, info.month) : "\(info.day)"
+        // 1 日: 实心强调色标签; 区间首月 / 1 月带年份 (跨年辨认).
+        let text = !isFirst ? "\(info.day)"
+            : info.showsYear ? String(format: "%04d-%02d-01", info.year, info.month)
+            : String(format: "%02d-01", info.month)
         let color: NSColor = info.isToday || isFirst ? .white
             : info.isPast ? .secondaryLabelColor
             : isWeekend ? .secondaryLabelColor : .labelColor
@@ -75,11 +77,14 @@ final class DayCellView: NSView {
             .foregroundColor: color
         ])
         let size = label.size()
-        let origin = NSPoint(x: 4, y: 1)
+        let padding: CGFloat = 5
+        let origin = NSPoint(x: 1 + padding, y: 1)
         if info.isToday || isFirst {
             (info.isToday ? NSColor.systemRed : Self.monthColor).setFill()
             NSBezierPath(
-                roundedRect: NSRect(x: origin.x - 3, y: origin.y, width: size.width + 6, height: size.height),
+                roundedRect: NSRect(
+                    x: origin.x - padding, y: origin.y, width: size.width + padding * 2, height: size.height
+                ),
                 xRadius: size.height / 2, yRadius: size.height / 2
             ).fill()
         }

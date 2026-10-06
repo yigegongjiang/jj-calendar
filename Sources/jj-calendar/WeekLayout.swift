@@ -38,6 +38,8 @@ struct DayInfo: Equatable {
     let weekday: Int
     let isToday: Bool
     let isPast: Bool
+    /// 1 日标签带年份: 区间首日 / 1 月 1 日.
+    let showsYear: Bool
 }
 
 /// 每行展示天数; 列固定周一起 (7 / 14 列), 日期连续排列 (月与月首尾衔接).
@@ -213,7 +215,8 @@ enum WeekLayout {
             let parts = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
             days.append(DayInfo(
                 date: date, day: parts.day!, month: parts.month!, year: parts.year!, weekday: parts.weekday!,
-                isToday: date == today, isPast: date < today
+                isToday: date == today, isPast: date < today,
+                showsYear: index == 0 || (parts.month == 1 && parts.day == 1)
             ))
             let column = (firstColumn + index) % span.columns
             if index == 0 || column == 0 {
