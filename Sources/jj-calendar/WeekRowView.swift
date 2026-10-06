@@ -1,6 +1,6 @@
 import AppKit
 
-/// 一行: 日期格 (≤ 7 / 14 个; 月首行 1 日前、月末后留空) + 事件 chip; 容量不足时日期格显示 +N, 悬停列出未显示日程.
+/// 一行: 日期格 (≤ 7 / 14 个; 区间首日前、末日后留空) + 事件 chip; 容量不足时日期格显示 +N, 悬停列出未显示日程.
 final class WeekRowView: NSView {
     struct Config: Equatable {
         let generation: Int
@@ -81,7 +81,7 @@ final class WeekRowView: NSView {
 
         for (col, day) in row.days.enumerated() {
             let count = row.timed[col].count + row.bars.count { ($0.startCol...$0.endCol).contains(col) }
-            // 月首行 1 日前为空白: 1 日补左边线.
+            // 首行首日前为空白: 首日补左边线.
             dayViews[col].drawsLeadingEdge = col == 0 && row.offset > 0
             dayViews[col].configure(
                 day, eventCount: count, hidden: hidden[col], config: config, calendar: calendar
@@ -110,7 +110,7 @@ final class WeekRowView: NSView {
         super.layout()
         guard let config, let row else { return }
         let width = bounds.width
-        // 日下标 -> 列: 月首行整体右移 offset 列 (1 日落在其星期列).
+        // 日下标 -> 列: 首行整体右移 offset 列 (首日落在其星期列).
         func columnX(_ index: Int) -> CGFloat {
             WeekGeometry.columnX(row.offset + index, of: row.columns, width: width)
         }

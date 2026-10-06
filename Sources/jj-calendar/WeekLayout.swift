@@ -40,7 +40,7 @@ struct DayInfo {
     let isPast: Bool
 }
 
-/// 每行展示天数; 列固定周一起 (7 / 14 列), 每月新起一行: 1 日前、月末后留空.
+/// 每行展示天数; 列固定周一起 (7 / 14 列), 日期连续排列 (月与月首尾衔接).
 enum RowSpan: Int, CaseIterable {
     case week, twoWeeks
 
@@ -74,7 +74,7 @@ struct BarSlot {
 struct WeekRow {
     /// 网格格数 (RowSpan.columns); days 可少于此 (月初 / 月末), 余下留空.
     let columns: Int
-    /// days[0] 所在列 (月首行 = 1 日的星期列, 其余行 = 0); 列号 = offset + 日下标.
+    /// days[0] 所在列 (首行 = 区间首日的星期列, 其余行 = 0); 列号 = offset + 日下标.
     let offset: Int
     let days: [DayInfo]
     let bars: [BarSlot]
@@ -116,7 +116,7 @@ struct Typography: Equatable {
     }
 }
 
-/// 行网格: 列 = 周一起的星期; 每月新起一行, 1 日落在其星期列, 按 RowSpan.columns 换行.
+/// 行网格: 列 = 周一起的星期; 日期连续排列, 按 RowSpan.columns 换行; 区间首日前、末日后留空.
 enum WeekLayout {
     static func calendar() -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -190,7 +190,7 @@ enum WeekLayout {
         let columns: Int
     }
 
-    /// 区间内逐日信息 + 行划分: 列 = (1 日星期列 + 日 - 1) % columns; 每月 1 日或列回到 0 时换行.
+    /// 区间内逐日信息 + 行划分: 列 = (首日星期列 + 日序号) % columns; 列回到 0 时换行.
     private static func rows(
         range: MonthRange, span: RowSpan, calendar: Calendar, today: Date
     ) -> (days: [DayInfo], slices: [RowSlice]) {
@@ -198,7 +198,7 @@ enum WeekLayout {
         var days: [DayInfo] = []
         days.reserveCapacity(totalDays)
         var starts: [(index: Int, column: Int)] = []
-        var monthColumn = 0
+        let firstColumn = (calendar.component(.weekday, from: range.start) - calendar.firstWeekday + 7) % 7
         for index in 0..<totalDays {
             let date = calendar.date(byAdding: .day, value: index, to: range.start)!
             let parts = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
@@ -206,11 +206,8 @@ enum WeekLayout {
                 date: date, day: parts.day!, month: parts.month!, year: parts.year!, weekday: parts.weekday!,
                 isToday: date == today, isPast: date < today
             ))
-            if parts.day == 1 {
-                monthColumn = (parts.weekday! - calendar.firstWeekday + 7) % 7
-            }
-            let column = (monthColumn + parts.day! - 1) % span.columns
-            if parts.day == 1 || column == 0 {
+            let column = (firstColumn + index) % span.columns
+            if index == 0 || column == 0 {
                 starts.append((index, column))
             }
         }
