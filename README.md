@@ -17,6 +17,7 @@ macOS 日历 + 提醒事项查看器 (只读).
 - 系统日历 / 提醒事项变化自动刷新; MUST NOT 依赖手动刷新
 - 长期运行稳定: 无崩溃 / 泄漏 / 性能劣化; 数据读取 MUST NOT 阻塞 UI
 - 主线程耗时只随视口增长: 视口附近的行先建, 其余分批补建; 内容未变的行不重建; 查询 MUST 有边界 (时间区间 / 仅未完成; NEVER `predicateForReminders(in:)`)
+- 滚动 MUST NOT 重绘: 每行 = 单视图 + 一张位图 (NEVER 每格 / 每条一个 NSView; AX 用虚拟元素), 后台线程渲染; 仅视口附近的行持有位图
 - 所有行为 MUST 通过 accessibility 透出自动化控制节点, 后台可完整操作; Debug 实例启动 + 操作 MUST NOT 干扰人类
 - 不过度设计
 

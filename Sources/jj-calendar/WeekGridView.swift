@@ -133,11 +133,14 @@ final class WeekGridView: NSView {
         scrollView.documentView = documentView
         addSubview(header)
         addSubview(scrollView)
-        // 滚动到尚未补建的行时立即建 chip.
+        // 滚动: 进入视口附近的行补建 + 渲染, 远离的释放位图.
         scrollView.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(
             self, selector: #selector(visibleRectChanged), name: NSView.boundsDidChangeNotification,
             object: scrollView.contentView
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(systemColorsChanged), name: NSColor.systemColorsDidChangeNotification, object: nil
         )
     }
 
@@ -161,8 +164,8 @@ final class WeekGridView: NSView {
         while rowViews.count < rows.count {
             let view = WeekRowView()
             let index = rowViews.count
-            view.onSelectDay = { [weak self] col, anchor in
-                self?.toggleDay(row: index, col: col, anchor: anchor)
+            view.onSelectDay = { [weak self] col, cell in
+                self?.toggleDay(row: index, col: col, cell: cell)
             }
             rowViews.append(view)
             documentView.addSubview(view)
@@ -175,7 +178,7 @@ final class WeekGridView: NSView {
     }
 
     /// 点击同一天 / 无日程的天 = 关闭 (后台时 transient popover 不会因外部点击关闭); 其他天 = 切换内容并移动.
-    private func toggleDay(row: Int, col: Int, anchor: NSView) {
+    private func toggleDay(row: Int, col: Int, cell: NSRect) {
         guard rows.indices.contains(row), rows[row].days.indices.contains(col) else { return }
         let day = rows[row].days[col]
         let items = rows[row].items(at: col)
@@ -191,7 +194,7 @@ final class WeekGridView: NSView {
             return
         }
         dayDetail.update(day: day, items: items, calendar: calendar)
-        dayPopover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxX)
+        dayPopover.show(relativeTo: cell, of: rowViews[row], preferredEdge: .maxX)
     }
 
     /// 数据刷新: 打开中的日期仍在区间内 -> 原地更新内容, 否则关闭.
@@ -243,8 +246,11 @@ final class WeekGridView: NSView {
             }
         }
         scheduleDeferredApply(later)
-        if let anchor = pendingAnchor, dayPopover.isShown, let cell = rowViews[anchor.row].dayCell(at: anchor.col) {
-            dayPopover.show(relativeTo: cell.bounds, of: cell, preferredEdge: .maxX)
+        updateLiveRows()
+        if let anchor = pendingAnchor, dayPopover.isShown {
+            let view = rowViews[anchor.row]
+            view.layoutSubtreeIfNeeded()
+            dayPopover.show(relativeTo: view.cellRect(anchor.col), of: view, preferredEdge: .maxX)
         }
         pendingAnchor = nil
         let folded = rowViews.reduce(0) { $0 + $1.hiddenTotal }
@@ -279,10 +285,27 @@ extension WeekGridView {
 
     @objc
     private func visibleRectChanged() {
+        updateLiveRows()
+    }
+
+    /// 视口 ±半屏内的行持有位图 (先补建内容), 其余释放: 滚动时只渲染新进入的行.
+    private func updateLiveRows() {
         let visible = scrollView.documentVisibleRect
-        for (index, view) in rowViews.enumerated() where view.frame.intersects(visible) {
-            applyRow(index)
+        let near = visible.insetBy(dx: 0, dy: -visible.height / 2)
+        for (index, view) in rowViews.enumerated() {
+            let live = view.frame.intersects(near)
+            if live {
+                applyRow(index)
+            }
+            view.isOnScreen = view.frame.intersects(visible)
+            view.isLive = live
         }
+    }
+
+    /// 强调色 / 系统颜色变化: 位图按新颜色重绘.
+    @objc
+    private func systemColorsChanged() {
+        rowViews.forEach { $0.invalidateRendering() }
     }
 }
 
