@@ -130,7 +130,7 @@ final class WeekRowView: NSView {
     }
 }
 
-/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日强调色实心标签「N月1日」) + 折叠数 +N; 星期见表头.
+/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日强调色实心标签「yyyy-MM-dd」) + 折叠数 +N; 星期见表头.
 final class DayCellView: NSView {
     private var info: DayInfo?
     private var hiddenCount = 0
@@ -189,8 +189,8 @@ final class DayCellView: NSView {
 
         let isWeekend = info.weekday == 1 || info.weekday == 7
         let isFirst = info.day == 1
-        // 1 日: 实心强调色标签; 1 月 1 日带年份 (跨年).
-        let text = !isFirst ? "\(info.day)" : info.month == 1 ? "\(info.year)年1月1日" : "\(info.month)月1日"
+        // 1 日: 实心强调色标签, yyyy-MM-dd (带年份便于跨年辨认).
+        let text = isFirst ? String(format: "%04d-%02d-01", info.year, info.month) : "\(info.day)"
         let color: NSColor = info.isToday || isFirst ? .white
             : info.isPast ? .secondaryLabelColor
             : isWeekend ? .secondaryLabelColor : .labelColor
