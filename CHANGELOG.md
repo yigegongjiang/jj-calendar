@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.2.6] - 2026-10-06
+
+### Changed
+
+- 去掉左侧月份列, 日期区更宽; 每月 1 日加粗显示「N月1日」(周末也不变灰) 区分月份
+
 ## [0.2.5] - 2026-10-06
 
 ### Added

@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.6] - 2026-10-06
+
+### Changed
+
+- 去掉左侧月份列, 日期区更宽; 每月 1 日加粗显示「N月1日」(周末也不变灰) 区分月份
+  - 删 `WeekMetrics.gutter` + `WeekRowView.draw` + `isColumnTop`; `DayCellView` 1 日周末用 `labelColor`
+
 ## [0.2.5] - 2026-10-06
 
 ### Added
