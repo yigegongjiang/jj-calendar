@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.2.10] - 2026-10-06
+
+### Changed
+
+- 日历筛选面板: 「仅」改为带边框的「只显示」按钮, 「全部显示 / 全部隐藏」恢复为按钮外观, 一眼可辨可点击
+  - `CalendarFilterController.pushButton`: 无边框文字按钮 -> `.push` bezel (`.small` / 行内 `.mini`)
+
 ## [0.2.9] - 2026-10-06
 
 ### Changed
