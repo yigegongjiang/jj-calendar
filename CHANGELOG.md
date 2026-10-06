@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.3.2] - 2026-10-06
+
+### Changed
+
+- 设置 (时长 / 每行天数 / 字号 / 忽略背景色 / 隐藏日历 / 窗口位置) 改存 `~/.config/jj-calendar/state.json`
+
 ## [0.3.1] - 2026-10-06
 
 ### Removed

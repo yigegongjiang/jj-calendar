@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.2] - 2026-10-06
+
+### Changed
+
+- 设置 (时长 / 每行天数 / 字号 / 忽略背景色 / 隐藏日历 / 窗口位置) 改存 `~/.config/jj-calendar/state.json`
+  - 新增 `ConfigStore` + `AppState`; 删全部 `UserDefaults` / `setFrameAutosaveName`; 缺失键合并默认值, 解析失败停写 + `window.subtitle` 提示; Debug 用 `.app` 同级 `debug-config/`
+
 ## [0.3.1] - 2026-10-06
 
 ### Removed
