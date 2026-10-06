@@ -7,6 +7,26 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.4.0] - 2026-10-06
+
+### Added
+
+- 接入提醒事项 (只读): 有截止日期的提醒显示在对应日期, 圆圈 = 未完成, 实心 + 删除线 = 已完成; 逾期标红; 提醒列表在「日历」面板中同样可隐藏 / 忽略
+  - `CalendarStore`: `requestFullAccessToReminders` 独立授权; 未完成 = `predicateForIncompleteReminders(nil..end)`, 已完成 = `predicateForCompletedReminders(start..end)`; `dueDateComponents` -> 无时刻 = 全天 [0 点, 次日 0 点)
+  - `CalendarEvent.isReminder / isCompleted / isOverdue(now:)`; `CalendarSummary.isReminderList` -> 筛选面板「提醒事项 · 账户」分组; `INFOPLIST_KEY_NSRemindersFullAccessUsageDescription`
+  - `AccessState` 记录授权; 激活时状态变化 -> 重新读取 (+ `store.reset()`); 缺一侧 -> 工具栏 `accessButton` 直达对应隐私设置
+- 工具栏显示「N 个日程 · M 个提醒 · 逾期 K」, 悬停列出全部逾期提醒 (含所选区间之前的)
+  - `EventText.summary`
+- 点击任一日期 / 日程 / 提醒: 弹出当日完整列表 (时间 / 日历 / 地点 / 完成状态), 文字可选中复制; 再点同一天关闭
+  - `DayDetailController` (popover, 锚定 `DayCellView`); 点击走响应链到 `WeekRowView.mouseDown`; 日期格 / chip / +N 均支持 `accessibilityPerformPress`; 数据刷新时原地更新或关闭
+
+### Changed
+
+- 某天放不下时, 该天最后一行显示醒目的「+N 项」, 点击查看当天全部; 不再只在日期角落标小字
+  - `WeekRowView.apply`: 每列独立, 超容量 -> 可见行 = 容量 - 1 + `MoreChipView`; 横条按列切段, 只画在有空间的列
+- 长区间 (1–2 年) 打开 / 切换更快: 先画可见部分, 其余在后台补齐; 日历同步刷新时未变化的周不重绘
+  - `WeekGridView`: 视口 ±1 屏的行同步 apply, 其余每批 6 行 + `Task.sleep(1ms)` 让出主线程; 滚动时补建可见行; `WeekRow` / `CalendarEvent` `Equatable` 代替 generation (24 个月 gridLayout 77 ms -> 22 ms, -O)
+
 ## [0.3.13] - 2026-10-06
 
 ### Changed
