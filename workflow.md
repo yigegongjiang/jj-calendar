@@ -15,18 +15,16 @@
 # 调试
 
 ```bash
-./scripts/debug.sh [DEVELOPMENT_TEAM]                        # 构建 Debug + 后台重启本 worktree 实例 (不抢前台), 输出 pid=<PID>
-./scripts/debug.sh quit                                      # 退出本 worktree 实例
+./scripts/debug.sh [DEVELOPMENT_TEAM]                        # 构建 + 后台重启本 worktree 实例, 输出 pid=<PID>
+./scripts/debug.sh quit                                      # 退出本 worktree 实例 (删 worktree 前执行)
 ```
 
-验证 → 构建 + 启动；按需使用 accessibility 进行 UI/UX 调试、验证功能、核对结果；界面变更截图检查。
+UI 验证 = peekaboo MCP 工具 (`see` / `click` / `set_value`), 按 PID 定位; 界面变更截图核对: 区间 2 / 6 / 12 个月 × 横屏 / 竖屏 × 全部 / 部分日历
 
-- 多 worktree 并行: 各 worktree 实例并存 (同 bundle id, 按产物路径区分); 窗口标题显示 worktree 目录名
-- UI/UX 调试按 PID 定位目标实例 (多实例并存时目标确定); MUST NOT 用应用名 / bundle id 定位
-- MUST NOT 绕过 `debug.sh` 自行复制 / 改 bundle id 启动
-- 人类同时在用本机: 验证 MUST NOT 抢占前台 / 鼠标 / 键盘 → 禁用 peekaboo `--foreground`, 只用 `see` (截图 + AX 树); 需切换状态 (如月份区间) → 写 Debug bundle defaults (`com.yigegongjiang.jj-calendar.debug`) 后 `open -n -g --env JJCAL_DEBUG_TAG=<worktree>` 重启; 换屏 / 尺寸用 `peekaboo window set-bounds --pid` (后台)
-- 界面变更 MUST 覆盖矩阵截图核对: 区间 2 / 6 / 12 个月 × 横屏 / 竖屏 × 全部日历 / 部分日历
-- 删除 worktree 前 → `./scripts/debug.sh quit`
+> 人类同时在用本机: NEVER 在 Bash 调 peekaboo CLI (`--foreground` 绕过 MCP 后台限制); MCP 拒绝的操作 MUST NOT 改用前台 / osascript
+
+- 后台可操作: 按钮 (`A−` / `A+` / 日历筛选) + 筛选 popover 复选框; 换屏 / 尺寸 → MCP `window` (set-bounds)
+- 后台不可操作: 年 / 月 `NSPopUpButton` → `debug.sh quit` + `defaults write com.yigegongjiang.jj-calendar.debug range.year|range.startMonth|range.endMonth -int N` + `debug.sh`
 
 # 发布
 
