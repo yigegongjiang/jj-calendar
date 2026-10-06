@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.3.6] - 2026-10-06
+
+### Changed
+
+- 列固定为星期 (周一起, 周六 / 周日在最后), 恢复顶部星期表头 (周末红色), 滚动时表头不动; 每月仍新起一行, 1 日落在它的星期列, 前后留空
+
 ## [0.3.5] - 2026-10-06
 
 ### Changed

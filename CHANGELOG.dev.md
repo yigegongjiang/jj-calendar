@@ -7,6 +7,14 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.6] - 2026-10-06
+
+### Changed
+
+- 列固定为星期 (周一起, 周六 / 周日在最后), 恢复顶部星期表头 (周末红色), 滚动时表头不动; 每月仍新起一行, 1 日落在它的星期列, 前后留空
+  - `WeekLayout.calendar()` 固定 `firstWeekday = 2`; `rows()` 按 (1 日星期列 + 日 - 1) % columns 切行; `WeekRow.offset` 由 `WeekRowView.layout` 统一右移
+  - `WeekdayHeaderView` 置于 `NSScrollView` 之上, 与行同宽; `DayCellView` 删格内星期, 月首行 1 日补左边线
+
 ## [0.3.5] - 2026-10-06
 
 ### Changed
