@@ -40,7 +40,7 @@ struct DayInfo {
     let isPast: Bool
 }
 
-/// 每行展示天数; 每月 1 日总在行首, 月末不足一行留空.
+/// 每行展示天数; 列固定周一起 (7 / 14 列), 每月新起一行: 1 日前、月末后留空.
 enum RowSpan: Int, CaseIterable {
     case week, twoWeeks
 
@@ -72,8 +72,10 @@ struct BarSlot {
 }
 
 struct WeekRow {
-    /// 网格格数 (RowSpan.columns); days 可少于此 (月末), 余下留空.
+    /// 网格格数 (RowSpan.columns); days 可少于此 (月初 / 月末), 余下留空.
     let columns: Int
+    /// days[0] 所在列 (月首行 = 1 日的星期列, 其余行 = 0); 列号 = offset + 日下标.
+    let offset: Int
     let days: [DayInfo]
     let bars: [BarSlot]
     /// 每列被横条占用的 lane 数; 该列定时事件紧接其下, 不预留整行最大 lane.
@@ -86,6 +88,8 @@ struct WeekRow {
 
 enum WeekMetrics {
     static let bottomPad: CGFloat = 1
+    /// 星期表头高度.
+    static let columnHeader: CGFloat = 16
     /// 滚动阈值: 铺满视口时每行至少展示 min(所需, 本值) 行事件; 做不到 -> 改为完整高度 + 纵向滚动.
     static let minLinesBeforeScroll = 3
 }
@@ -112,12 +116,14 @@ struct Typography: Equatable {
     }
 }
 
-/// 行网格: 区间内每月从 1 日起按 RowSpan.columns 切行, 月与月之间断行.
+/// 行网格: 列 = 周一起的星期; 每月新起一行, 1 日落在其星期列, 按 RowSpan.columns 换行.
 enum WeekLayout {
     static func calendar() -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "zh_CN")
         calendar.timeZone = .autoupdatingCurrent
+        // 周一为首列, 不随系统设置.
+        calendar.firstWeekday = 2
         return calendar
     }
 
@@ -132,7 +138,8 @@ enum WeekLayout {
         range: MonthRange, span: RowSpan, events: [CalendarEvent], calendar: Calendar, now: Date
     ) -> [WeekRow] {
         let today = calendar.startOfDay(for: now)
-        let (days, rowRanges) = rows(range: range, span: span, calendar: calendar, today: today)
+        let (days, slices) = rows(range: range, span: span, calendar: calendar, today: today)
+        let rowRanges = slices.map(\.range)
         let totalDays = days.count
         // rowOf[日序号] = 所在行.
         let rowOf = rowRanges.indices.flatMap { repeatElement($0, count: rowRanges[$0].count) }
@@ -170,35 +177,50 @@ enum WeekLayout {
 
         return rowRanges.indices.map { row in
             assemble(
-                columns: span.columns, days: Array(days[rowRanges[row]]), segments: segments[row],
-                timed: timed[row], today: today
+                slice: slices[row], days: Array(days[rowRanges[row]]),
+                segments: segments[row], timed: timed[row], today: today
             )
         }
     }
 
-    /// 区间内逐日信息 + 行划分 (日序号区间): 行起点 = 每月 1 日 + 满 columns 天.
+    /// 一行: 日序号区间 + 首日所在列 + 行格数.
+    private struct RowSlice {
+        let range: Range<Int>
+        let offset: Int
+        let columns: Int
+    }
+
+    /// 区间内逐日信息 + 行划分: 列 = (1 日星期列 + 日 - 1) % columns; 每月 1 日或列回到 0 时换行.
     private static func rows(
         range: MonthRange, span: RowSpan, calendar: Calendar, today: Date
-    ) -> (days: [DayInfo], rowRanges: [Range<Int>]) {
+    ) -> (days: [DayInfo], slices: [RowSlice]) {
         let totalDays = calendar.dateComponents([.day], from: range.start, to: range.end).day!
         var days: [DayInfo] = []
         days.reserveCapacity(totalDays)
-        var rowStarts: [Int] = []
-        for offset in 0..<totalDays {
-            let date = calendar.date(byAdding: .day, value: offset, to: range.start)!
+        var starts: [(index: Int, column: Int)] = []
+        var monthColumn = 0
+        for index in 0..<totalDays {
+            let date = calendar.date(byAdding: .day, value: index, to: range.start)!
             let parts = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
             days.append(DayInfo(
                 date: date, day: parts.day!, month: parts.month!, year: parts.year!, weekday: parts.weekday!,
                 isToday: date == today, isPast: date < today
             ))
-            if parts.day == 1 || offset - rowStarts.last! == span.columns {
-                rowStarts.append(offset)
+            if parts.day == 1 {
+                monthColumn = (parts.weekday! - calendar.firstWeekday + 7) % 7
+            }
+            let column = (monthColumn + parts.day! - 1) % span.columns
+            if parts.day == 1 || column == 0 {
+                starts.append((index, column))
             }
         }
-        let rowRanges = rowStarts.indices.map { index in
-            rowStarts[index]..<(index + 1 < rowStarts.count ? rowStarts[index + 1] : totalDays)
+        let slices = starts.indices.map { index in
+            RowSlice(
+                range: starts[index].index..<(index + 1 < starts.count ? starts[index + 1].index : totalDays),
+                offset: starts[index].column, columns: span.columns
+            )
         }
-        return (days, rowRanges)
+        return (days, slices)
     }
 
     private struct Segment {
@@ -209,7 +231,7 @@ enum WeekLayout {
     }
 
     private static func assemble(
-        columns: Int, days: [DayInfo], segments: [Segment], timed: [[CalendarEvent]], today: Date
+        slice: RowSlice, days: [DayInfo], segments: [Segment], timed: [[CalendarEvent]], today: Date
     ) -> WeekRow {
         // 已忽略日历排最后: 分到靠下的 lane, 空间不足时优先被折叠.
         let sorted = segments.sorted {
@@ -248,7 +270,7 @@ enum WeekLayout {
         }
         let lanes = days.indices.map { col in (occupied.lastIndex { $0[col] } ?? -1) + 1 }
         return WeekRow(
-            columns: columns, days: days, bars: bars, lanesPerColumn: lanes,
+            columns: slice.columns, offset: slice.offset, days: days, bars: bars, lanesPerColumn: lanes,
             timed: dayEvents, lines: days.indices.map { lanes[$0] + dayEvents[$0].count }.max() ?? 0
         )
     }

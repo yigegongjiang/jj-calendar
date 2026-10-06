@@ -1,6 +1,6 @@
 import AppKit
 
-/// 一行: 日期格 (7 / 14 个, 月末不足一行时右侧留空) + 事件 chip; 容量不足时日期格显示 +N, 悬停列出未显示日程.
+/// 一行: 日期格 (≤ 7 / 14 个; 月首行 1 日前、月末后留空) + 事件 chip; 容量不足时日期格显示 +N, 悬停列出未显示日程.
 final class WeekRowView: NSView {
     struct Config: Equatable {
         let generation: Int
@@ -81,6 +81,8 @@ final class WeekRowView: NSView {
 
         for (col, day) in row.days.enumerated() {
             let count = row.timed[col].count + row.bars.count { ($0.startCol...$0.endCol).contains(col) }
+            // 月首行 1 日前为空白: 1 日补左边线.
+            dayViews[col].drawsLeadingEdge = col == 0 && row.offset > 0
             dayViews[col].configure(
                 day, eventCount: count, hidden: hidden[col], config: config, calendar: calendar
             )
@@ -106,33 +108,35 @@ final class WeekRowView: NSView {
 
     override func layout() {
         super.layout()
-        guard let config, let columns = row?.columns else { return }
+        guard let config, let row else { return }
         let width = bounds.width
-        for (col, view) in dayViews.enumerated() {
-            let x = WeekGeometry.columnX(col, of: columns, width: width)
-            let nextX = WeekGeometry.columnX(col + 1, of: columns, width: width)
+        // 日下标 -> 列: 月首行整体右移 offset 列 (1 日落在其星期列).
+        func columnX(_ index: Int) -> CGFloat {
+            WeekGeometry.columnX(row.offset + index, of: row.columns, width: width)
+        }
+        for (index, view) in dayViews.enumerated() {
+            let x = columnX(index)
+            let nextX = columnX(index + 1)
             view.frame = NSRect(x: x, y: 0, width: nextX - x, height: bounds.height)
         }
         let line = config.typography.line
         let top = config.typography.header
         for slot in slots {
-            let x = WeekGeometry.columnX(slot.startCol, of: columns, width: width)
+            let x = columnX(slot.startCol)
             slot.chip.frame = NSRect(
-                x: x + 1, y: top + CGFloat(slot.line) * line,
-                width: WeekGeometry.columnX(slot.endCol + 1, of: columns, width: width) - x - 3, height: line - 1
+                x: x + 1, y: top + CGFloat(slot.line) * line, width: columnX(slot.endCol + 1) - x - 3, height: line - 1
             )
         }
     }
 }
 
-/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日加粗显示「N月1日」) + 星期 (周末红色) + 折叠数 +N.
-/// 行首固定为每月 1 / 8 / 15… 日, 列不对应星期, 故星期画在格内.
+/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日加粗显示「N月1日」) + 折叠数 +N; 星期见表头.
 final class DayCellView: NSView {
     private var info: DayInfo?
     private var hiddenCount = 0
     private var fontSize = Typography.standard
     private var monthTint = true
-    private static let weekdays = ["日", "一", "二", "三", "四", "五", "六"]
+    var drawsLeadingEdge = false
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -179,6 +183,9 @@ final class DayCellView: NSView {
         NSColor.separatorColor.setFill()
         NSRect(x: bounds.maxX - 1, y: 0, width: 1, height: bounds.height).fill()
         NSRect(x: 0, y: bounds.maxY - 1, width: bounds.width, height: 1).fill()
+        if drawsLeadingEdge {
+            NSRect(x: 0, y: 0, width: 1, height: bounds.height).fill()
+        }
 
         let isWeekend = info.weekday == 1 || info.weekday == 7
         let text = info.day == 1 ? "\(info.month)月1日" : "\(info.day)"
@@ -201,22 +208,12 @@ final class DayCellView: NSView {
             ).fill()
         }
         label.draw(at: origin)
-        let weekday = NSAttributedString(string: Self.weekdays[info.weekday - 1], attributes: [
-            .font: NSFont.systemFont(ofSize: fontSize - 1.5),
-            .foregroundColor: isWeekend ? NSColor.systemRed.withAlphaComponent(info.isPast ? 0.5 : 0.85)
-                : NSColor.tertiaryLabelColor
-        ])
-        // 窄格优先保留 +N: 星期放不下则省略, +N 底色盖住溢出的日期.
-        let moreX = drawMore(background: background)
-        let weekdayX = origin.x + size.width + (info.isToday ? 5 : 2)
-        if weekdayX + weekday.size().width <= moreX {
-            weekday.draw(at: NSPoint(x: weekdayX, y: origin.y + (size.height - weekday.size().height) / 2))
-        }
+        drawMore(background: background)
     }
 
-    /// 折叠数 +N 靠右; 返回其左边界 (无折叠 = 格宽).
-    private func drawMore(background: NSColor) -> CGFloat {
-        guard hiddenCount > 0 else { return bounds.width }
+    /// 折叠数 +N 靠右; 底色盖住窄格溢出的日期.
+    private func drawMore(background: NSColor) {
+        guard hiddenCount > 0 else { return }
         let more = NSAttributedString(string: "+\(hiddenCount)", attributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize - 0.5, weight: .bold),
             .foregroundColor: NSColor.systemOrange
@@ -226,7 +223,6 @@ final class DayCellView: NSView {
         background.setFill()
         NSRect(x: x - 2, y: 1, width: size.width + 2, height: size.height).fill()
         more.draw(at: NSPoint(x: x, y: 1))
-        return x - 2
     }
 }
 

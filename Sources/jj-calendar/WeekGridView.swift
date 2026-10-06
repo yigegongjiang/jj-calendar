@@ -44,7 +44,7 @@ enum EventText {
     }
 }
 
-/// 单栏网格: 按 GridPlan 自上而下摆放行; 视口放不下时纵向滚动, 放得下时无滚动条且禁回弹.
+/// 单栏网格: 固定星期表头 + 按 GridPlan 自上而下摆放行; 视口放不下时纵向滚动, 放得下时无滚动条且禁回弹.
 final class WeekGridView: NSView {
     private var rows: [WeekRow] = []
     private var calendar = Calendar.current
@@ -52,6 +52,7 @@ final class WeekGridView: NSView {
     private var rowViews: [WeekRowView] = []
     private let scrollView = NSScrollView()
     private let documentView = FlippedView()
+    private let header = WeekdayHeaderView()
     private var scrollToTopPending = false
 
     var typography = Typography(fontSize: Typography.standard) {
@@ -74,6 +75,7 @@ final class WeekGridView: NSView {
         scrollView.horizontalScrollElasticity = .none
         scrollView.autohidesScrollers = false
         scrollView.documentView = documentView
+        addSubview(header)
         addSubview(scrollView)
     }
 
@@ -108,13 +110,17 @@ final class WeekGridView: NSView {
 
     override func layout() {
         super.layout()
-        scrollView.frame = bounds
+        let headerHeight = WeekMetrics.columnHeader
+        scrollView.frame = NSRect(x: 0, y: headerHeight, width: bounds.width, height: bounds.height - headerHeight)
         // 滚动与否只取决于视口高度 (无横向滚动条), 滚动条出现收窄宽度不会反过来改变判断.
         let viewport = scrollView.contentSize
         let plan = GridPlan.make(rows: rows, size: viewport, typography: typography)
         scrollView.hasVerticalScroller = plan.scrolls
         scrollView.verticalScrollElasticity = plan.scrolls ? .automatic : .none
+        // 表头与行同宽 (传统滚动条收窄内容区时仍列对齐).
         let width = scrollView.contentSize.width
+        header.frame = NSRect(x: 0, y: 0, width: width, height: headerHeight)
+        header.columns = rows.first?.columns ?? 7
         documentView.frame = NSRect(x: 0, y: 0, width: width, height: plan.height)
         for (index, placement) in plan.placements.enumerated() {
             let view = rowViews[index]
@@ -134,6 +140,36 @@ final class WeekGridView: NSView {
         setAccessibilityLabel(
             "每行 \(columns) 格, \(rows.count) 行, \(plan.scrolls ? "滚动" : "不滚动"), 字号 \(typography.fontSize), 折叠 \(folded)"
         )
+    }
+}
+
+/// 星期表头: 周一起, 按行格数 (7 / 14) 重复; 周末红色.
+final class WeekdayHeaderView: NSView {
+    private static let symbols = ["一", "二", "三", "四", "五", "六", "日"]
+
+    var columns = 7 {
+        didSet { needsDisplay = columns != oldValue }
+    }
+
+    override var isFlipped: Bool {
+        true
+    }
+
+    override func draw(_: NSRect) {
+        NSColor.windowBackgroundColor.setFill()
+        bounds.fill()
+        NSColor.separatorColor.setFill()
+        NSRect(x: 0, y: bounds.maxY - 1, width: bounds.width, height: 1).fill()
+        for col in 0..<columns {
+            let label = NSAttributedString(string: Self.symbols[col % 7], attributes: [
+                .font: NSFont.systemFont(ofSize: 10, weight: .medium),
+                .foregroundColor: col % 7 >= 5 ? NSColor.systemRed : NSColor.labelColor
+            ])
+            let x = WeekGeometry.columnX(col, of: columns, width: bounds.width)
+            let width = WeekGeometry.columnX(col + 1, of: columns, width: bounds.width) - x
+            let size = label.size()
+            label.draw(at: NSPoint(x: x + (width - size.width) / 2, y: (bounds.height - size.height) / 2))
+        }
     }
 }
 
