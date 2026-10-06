@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.3.13] - 2026-10-06
+
+### Changed
+
+- 每月 1 日标签改为 `2027-01-01` 格式 (每月均带年份)
+
 ## [0.3.12] - 2026-10-06
 
 ### Fixed

@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.13] - 2026-10-06
+
+### Changed
+
+- 每月 1 日标签改为 `2027-01-01` 格式 (每月均带年份)
+  - `DayCellView.draw`: 1 日文本 `String(format: "%04d-%02d-01", year, month)`
+
 ## [0.3.12] - 2026-10-06
 
 ### Fixed
