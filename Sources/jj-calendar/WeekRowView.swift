@@ -206,7 +206,7 @@ final class EventChipView: NSView {
             .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize - 1, weight: .regular),
             .foregroundColor: NSColor.secondaryLabelColor
         ]
-        let isOverdue = event.isOverdue(now: Date())
+        let isOverdue = event.isOverdue
         var timeAttributes = secondary
         if isOverdue {
             timeAttributes[.foregroundColor] = NSColor.systemRed

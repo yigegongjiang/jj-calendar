@@ -49,14 +49,14 @@ enum EventText {
 
     /// 工具栏摘要「N 个日程 · M 个提醒 · 逾期 K」; 逾期含区间前 (网格不可见), overdue = 悬停列出全部逾期提醒.
     static func summary(
-        _ items: [CalendarEvent], range: MonthRange, now: Date, reminders: Bool, calendar: Calendar
+        _ items: [CalendarEvent], range: MonthRange, reminders: Bool, calendar: Calendar
     ) -> (text: String, overdue: String?) {
         // 有时刻的提醒 end == start: 起点落在区间内即算.
         let inRange = items.filter { $0.start < range.end && ($0.end > range.start || $0.start >= range.start) }
         var parts = ["\(inRange.count { !$0.isReminder }) 个日程"]
         guard reminders else { return (parts[0], nil) }
         parts.append("\(inRange.count(where: \.isReminder)) 个提醒")
-        let overdue = items.filter { !$0.isIgnored && $0.isOverdue(now: now) && $0.start < range.end }
+        let overdue = items.filter { !$0.isIgnored && $0.isOverdue && $0.start < range.end }
             .sorted { $0.start < $1.start }
         guard !overdue.isEmpty else { return (parts.joined(separator: " · "), nil) }
         parts.append("逾期 \(overdue.count)")
@@ -68,7 +68,7 @@ enum EventText {
     static func detail(_ event: CalendarEvent, calendar: Calendar) -> String {
         if event.isReminder {
             let due = event.isAllDay ? day(event.start) : "\(day(event.start)) \(time(event.start))"
-            let state = event.isCompleted ? " · 已完成" : event.isOverdue(now: Date()) ? " · 逾期" : ""
+            let state = event.isCompleted ? " · 已完成" : event.isOverdue ? " · 逾期" : ""
             return [event.title, "\(due) 截止", "提醒事项 · \(event.calendarTitle)\(state)", event.location]
                 .compactMap(\.self).joined(separator: "\n")
         }
@@ -94,8 +94,12 @@ final class WeekGridView: NSView {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.contentViewController = dayDetail
+        popover.delegate = self
         return popover
     }()
+
+    /// transient popover 被某次 mouseDown 自动关闭时记下 (日期, 事件时间): 同一点击随后到达格子时不再重开.
+    private var closedByClick: (date: Date, timestamp: TimeInterval)?
 
     /// 数据刷新时当日列表仍打开: layout 后重新锚定到该日期所在格 (行 / 列可能已变).
     private var pendingAnchor: (row: Int, col: Int)?
@@ -174,8 +178,14 @@ final class WeekGridView: NSView {
     private func toggleDay(row: Int, col: Int, anchor: NSView) {
         guard rows.indices.contains(row), rows[row].days.indices.contains(col) else { return }
         let day = rows[row].days[col]
+        let closed = closedByClick
+        closedByClick = nil
         if dayPopover.isShown, dayDetail.date == day.date {
             dayPopover.performClose(nil)
+            return
+        }
+        if let closed, closed.date == day.date, let event = NSApp.currentEvent, event.type == .leftMouseDown,
+           event.timestamp == closed.timestamp {
             return
         }
         dayDetail.update(day: day, items: rows[row].items(at: col), calendar: calendar)
@@ -271,6 +281,16 @@ extension WeekGridView {
         for (index, view) in rowViews.enumerated() where view.frame.intersects(visible) {
             applyRow(index)
         }
+    }
+}
+
+extension WeekGridView: NSPopoverDelegate {
+    func popoverWillClose(_: Notification) {
+        guard let date = dayDetail.date, let event = NSApp.currentEvent, event.type == .leftMouseDown else {
+            closedByClick = nil
+            return
+        }
+        closedByClick = (date, event.timestamp)
     }
 }
 

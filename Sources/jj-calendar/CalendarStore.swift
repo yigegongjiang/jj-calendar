@@ -41,10 +41,17 @@ struct CalendarEvent: Sendable, Equatable {
     let isCompleted: Bool
     /// 属于已忽略日历: 淡化 + 同位置排后 (优先被折叠); 由界面层设置.
     var isIgnored = false
+    /// 逾期提醒; 由界面层按当前时间设置 (参与行比较: 到点时只重建受影响的行).
+    var isOverdue = false
 
     /// 未完成且已过截止: 有时刻 -> 截止时刻已过; 仅日期 -> 截止日已过.
-    func isOverdue(now: Date) -> Bool {
-        isReminder && !isCompleted && (isAllDay ? end <= now : start < now)
+    func overdue(at now: Date) -> Bool {
+        isReminder && !isCompleted && now >= overdueTime
+    }
+
+    /// 变为逾期的时刻.
+    var overdueTime: Date {
+        isAllDay ? end : start.addingTimeInterval(1)
     }
 }
 

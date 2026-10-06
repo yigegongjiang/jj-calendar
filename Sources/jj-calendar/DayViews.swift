@@ -179,9 +179,8 @@ final class DayDetailController: NSViewController {
         if items.isEmpty {
             stack.addArrangedSubview(secondaryLabel("无日程"))
         }
-        let now = Date()
         for event in items {
-            stack.addArrangedSubview(itemRow(event, calendar: calendar, now: now))
+            stack.addArrangedSubview(itemRow(event, calendar: calendar))
         }
         stack.layoutSubtreeIfNeeded()
         let height = stack.fittingSize.height
@@ -191,8 +190,8 @@ final class DayDetailController: NSViewController {
     }
 
     /// 标记 + [时间 标题 / 日历 · 状态 · 地点].
-    private func itemRow(_ event: CalendarEvent, calendar: Calendar, now: Date) -> NSView {
-        let isOverdue = event.isOverdue(now: now)
+    private func itemRow(_ event: CalendarEvent, calendar: Calendar) -> NSView {
+        let isOverdue = event.isOverdue
         let when = NSAttributedString(string: EventText.when(event, calendar: calendar) + "  ", attributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular),
             .foregroundColor: isOverdue ? NSColor.systemRed : NSColor.secondaryLabelColor

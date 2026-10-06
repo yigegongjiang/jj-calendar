@@ -50,6 +50,8 @@ final class MainViewController: NSViewController {
     private var snapshot: CalendarSnapshot?
     private var generation = 0
     private var reloadTask: Task<Void, Never>?
+    /// 下一个提醒到点变逾期时重排 (跨天另由 NSCalendarDayChanged 处理).
+    private var overdueTask: Task<Void, Never>?
     private let observers = ObserverTokens()
 
     init() {
@@ -249,15 +251,26 @@ final class MainViewController: NSViewController {
             guard !hiddenCalendarIDs.contains(event.calendarID) else { return nil }
             var event = event
             event.isIgnored = ignoredCalendarIDs.contains(event.calendarID)
+            event.isOverdue = event.overdue(at: now)
             return event
         }
         let rows = WeekLayout.build(range: range, span: rowSpan, events: items, calendar: calendar, now: now)
         gridView.update(rows: rows, calendar: calendar)
-        let summary = EventText.summary(
-            items, range: range, now: now, reminders: snapshot.access.reminders, calendar: calendar
-        )
+        let summary = EventText.summary(items, range: range, reminders: snapshot.access.reminders, calendar: calendar)
         summaryLabel.stringValue = summary.text
         summaryLabel.toolTip = summary.overdue
+        scheduleOverdueRefresh(items)
+    }
+
+    private func scheduleOverdueRefresh(_ items: [CalendarEvent]) {
+        overdueTask?.cancel()
+        let next = items.lazy.filter { $0.isReminder && !$0.isCompleted && !$0.isOverdue }.map(\.overdueTime).min()
+        guard let next else { return }
+        overdueTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(max(0, next.timeIntervalSinceNow)))
+            guard !Task.isCancelled else { return }
+            self?.relayout()
+        }
     }
 }
 

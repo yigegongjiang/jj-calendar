@@ -8,21 +8,24 @@
 
 # jj-calendar
 
-macOS 日历查看器 (只读).
+macOS 日历 + 提醒事项查看器 (只读).
 
 ## 核心要求 (MUST)
 
-- 只读: EventKit 只有 full access, 只读由代码保证; MUST NOT 调用任何写接口 (人类明确提出前)
+- 只读: EventKit 只有 full access, 只读由代码保证; MUST NOT 调用任何写接口 (save / remove / commit / 改提醒完成状态; 人类明确提出前)
 - 只为「方便查看日程」定制; 紧凑, 最大化利用屏幕; MUST NOT 复刻系统日历
-- 系统日历变化自动刷新; MUST NOT 依赖手动刷新
+- 系统日历 / 提醒事项变化自动刷新; MUST NOT 依赖手动刷新
 - 长期运行稳定: 无崩溃 / 泄漏 / 性能劣化; 数据读取 MUST NOT 阻塞 UI
+- 主线程耗时只随视口增长: 视口附近的行先建, 其余分批补建; 内容未变的行不重建; 查询 MUST 有边界 (时间区间 / 仅未完成; NEVER `predicateForReminders(in:)`)
 - 所有行为 MUST 通过 accessibility 透出自动化控制节点, 后台可完整操作; Debug 实例启动 + 操作 MUST NOT 干扰人类
 - 不过度设计
 
 ## 架构
 
 - Swift 6 + AppKit, macOS 14+, 纯代码 UI; NEVER SwiftUI; 无第三方依赖
-- 新增按钮 / 开关统一放标题栏右侧 (`MainViewController.titlebarAccessory` stack)
+- 新增按钮 / 开关统一放标题栏右侧 (`MainViewController.titlebarAccessory` stack); 例外: 授权提示按钮在工具栏摘要旁 (仅缺权限时显示)
+- 提醒事项: 列表与日历同等参与筛选 / 忽略; 截止日落格 (无时刻 = 全天), 无截止日期不展示; 已完成按完成时间取区间内; 日历 / 提醒事项分别授权, 缺一不影响另一方
+- 日期格放不下: 该列末行改为「+N 项」; 点击日期格 / 条目 / +N -> 当日完整列表 (popover, 文本可复制); 同日再点关闭
 - 持久化: `~/.config/jj-calendar/` (Debug: `.app` 同级 `debug-config/`, 每份构建独立); 启动读取; 缺失键取默认; 解析失败停写该文件 + 窗口副标题提示
   - `config.jsonc`: 界面选项 (时长 / 每行天数 / 字号 / 忽略背景色); 逐键中文说明; 界面操作时整文件重写; 手工编辑 (JSON5) 重启生效
   - `config.default.jsonc`: 全部键默认值 + 说明, 启动刷新, 仅供查阅
