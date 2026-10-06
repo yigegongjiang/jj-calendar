@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.3.7] - 2026-10-06
+
+### Changed
+
+- 月与月首尾衔接: 下月 1 日紧接上月末日排在同一行, 不再另起一行; 只在所选区间首日前、末日后留空
+
 ## [0.3.6] - 2026-10-06
 
 ### Changed

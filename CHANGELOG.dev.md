@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.7] - 2026-10-06
+
+### Changed
+
+- 月与月首尾衔接: 下月 1 日紧接上月末日排在同一行, 不再另起一行; 只在所选区间首日前、末日后留空
+  - `WeekLayout.rows()`: 列 = (区间首日星期列 + 日序号) % columns, 仅列回到 0 时换行
+
 ## [0.3.6] - 2026-10-06
 
 ### Changed
