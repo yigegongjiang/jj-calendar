@@ -51,6 +51,7 @@ Swift + AppKit 实现的 macOS 日历查看器: 只读 macOS 系统日历 (Calen
 - 数据: `CalendarStore` actor 持有唯一 `EKEventStore`, 查询在 actor 执行器上 → `Sendable` 值类型回主线程; `EKEventStoreChanged` 防抖 300ms 重读
 - 排版: `WeekLayout` 生成周行 (横条 lane 贪心分配) → `GridPlan` 按窗口尺寸 + 字号选栏数 (优先全部展示, 其次日宽) + water-filling 分配行数 → 视图只做摆放
 - Debug / Release 独立 PRODUCT_NAME + Bundle ID (`com.yigegongjiang.jj-calendar[.debug]`) + 图标 (Debug 带 D 标记)
+- 自动化: 全部控件 AX 后台可操作 (不抢前台); 年 / 月 `NSPopUpButton` 经自定义 cell 开放 AX value 写入
 
 ## 日历权限
 

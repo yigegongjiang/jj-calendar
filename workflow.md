@@ -23,8 +23,8 @@ UI 验证 = peekaboo MCP 工具 (`see` / `click` / `set_value`), 按 PID 定位;
 
 > 人类同时在用本机: NEVER 在 Bash 调 peekaboo CLI (`--foreground` 绕过 MCP 后台限制); MCP 拒绝的操作 MUST NOT 改用前台 / osascript
 
-- 后台可操作: 日历筛选按钮 + popover 复选框 + View 菜单字号 (放大 / 缩小 / 默认字号; target 直连, 不需 key window); 换屏 / 尺寸 → MCP `window` (set-bounds)
-- 后台不可操作: 年 / 月 `NSPopUpButton` → `debug.sh quit` + `defaults write com.yigegongjiang.jj-calendar.debug range.start|range.end -int N` (N = 年 × 12 + 月 − 1) + `debug.sh`
+- 全部控件后台可操作: 年 / 月 popup = `set_value` (选项标题, 如 `2027年` / `3月`); 日历筛选按钮 + popover 复选框 = `click`; 字号 = `menu` click View 菜单; 换屏 / 尺寸 = `window` set-bounds
+- 新增控件 MUST 保持后台可操作 (按钮 / 复选框 / AX value 可写); 弹菜单类控件须补 settable value
 
 # 发布
 
