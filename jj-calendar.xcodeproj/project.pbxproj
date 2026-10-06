@@ -10,6 +10,10 @@
 		A00000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000012 /* AppDelegate.swift */; };
 		A00000000000000000000004 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000016 /* MainViewController.swift */; };
 		A00000000000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000015 /* Assets.xcassets */; };
+		A00000000000000000000005 /* CalendarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000017 /* CalendarStore.swift */; };
+		A00000000000000000000006 /* WeekLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000018 /* WeekLayout.swift */; };
+		A00000000000000000000007 /* WeekRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000019 /* WeekRowView.swift */; };
+		A00000000000000000000008 /* WeekGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* WeekGridView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +23,11 @@
 		A00000000000000000000012 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A00000000000000000000016 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		A00000000000000000000013 /* jj-calendar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "jj-calendar.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000017 /* CalendarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStore.swift; sourceTree = "<group>"; };
+		A00000000000000000000018 /* WeekLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekLayout.swift; sourceTree = "<group>"; };
+		A00000000000000000000019 /* WeekRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekRowView.swift; sourceTree = "<group>"; };
+		A00000000000000000000020 /* jj-calendar.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "jj-calendar.entitlements"; sourceTree = "<group>"; };
+		A00000000000000000000022 /* WeekGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekGridView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -33,7 +42,7 @@
 		};
 		A00000000000000000000032 /* jj-calendar */ = {
 			isa = PBXGroup;
-			children = (A00000000000000000000011 /* main.swift */, A00000000000000000000012 /* AppDelegate.swift */, A00000000000000000000016 /* MainViewController.swift */, A00000000000000000000015 /* Assets.xcassets */);
+			children = (A00000000000000000000011 /* main.swift */, A00000000000000000000012 /* AppDelegate.swift */, A00000000000000000000016 /* MainViewController.swift */, A00000000000000000000017 /* CalendarStore.swift */, A00000000000000000000018 /* WeekLayout.swift */, A00000000000000000000022 /* WeekGridView.swift */, A00000000000000000000019 /* WeekRowView.swift */, A00000000000000000000020 /* jj-calendar.entitlements */, A00000000000000000000015 /* Assets.xcassets */);
 			path = "Sources/jj-calendar";
 			sourceTree = "<group>";
 		};
@@ -84,7 +93,7 @@
 		A00000000000000000000051 = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (A00000000000000000000001 /* main.swift in Sources */, A00000000000000000000002 /* AppDelegate.swift in Sources */, A00000000000000000000004 /* MainViewController.swift in Sources */);
+			files = (A00000000000000000000001 /* main.swift in Sources */, A00000000000000000000002 /* AppDelegate.swift in Sources */, A00000000000000000000004 /* MainViewController.swift in Sources */, A00000000000000000000005 /* CalendarStore.swift in Sources */, A00000000000000000000006 /* WeekLayout.swift in Sources */, A00000000000000000000008 /* WeekGridView.swift in Sources */, A00000000000000000000007 /* WeekRowView.swift in Sources */);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
@@ -124,6 +133,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconDebug;
 				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_ENTITLEMENTS = "Sources/jj-calendar/jj-calendar.entitlements";
 				CODE_SIGN_STYLE = Manual;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -131,6 +141,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_NAME)";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "jj-calendar 只读读取系统日历日程用于展示, 不会修改任何数据.";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.yigegongjiang.jj-calendar.debug";
 				PRODUCT_NAME = "jj-calendar Debug";
 			};
@@ -141,6 +152,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_ENTITLEMENTS = "Sources/jj-calendar/jj-calendar.entitlements";
 				CODE_SIGN_STYLE = Manual;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -148,6 +160,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_NAME)";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "jj-calendar 只读读取系统日历日程用于展示, 不会修改任何数据.";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.yigegongjiang.jj-calendar";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

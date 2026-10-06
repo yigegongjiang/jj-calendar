@@ -38,8 +38,8 @@ xcodebuild -project jj-calendar.xcodeproj -scheme jj-calendar \
   build
 
 quit_instances
-# -n: 同一 bundle id 允许多实例并存。
-open -n --env "JJCAL_DEBUG_TAG=$tag" "$built_app"
+# -n: 同一 bundle id 允许多实例并存; -g: 后台启动, 不抢占前台。
+open -n -g --env "JJCAL_DEBUG_TAG=$tag" "$built_app"
 for _ in $(seq 50); do
   pid="$(instance_pids)"
   if [ -n "$pid" ]; then

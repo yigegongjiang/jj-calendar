@@ -25,8 +25,7 @@ Swift + AppKit 实现的 macOS 日历查看器: 只读 macOS 系统日历 (Calen
 <!-- prettier-ignore -->
 | 阶段 | 内容 |
 | --- | --- |
-| 当前 | Hello World 骨架 (AppKit) |
-| 下一步 | EventKit 读取日历事件 + 定制渲染 |
+| 当前 | 跨月连续日程视图 (EventKit 只读) |
 | 后续 MAY | Reminders (提醒事项) 只读接入 |
 | 后续 MAY | 写能力 (人类明确提出后) |
 
@@ -34,15 +33,24 @@ Swift + AppKit 实现的 macOS 日历查看器: 只读 macOS 系统日历 (Calen
 
 安装位置: `/Applications/jj-calendar.app`;
 
+- 顶栏: 年份 + 起始月 + 结束月 (结束月 < 起始月 → 跨入次年, 最多 12 个月) + 日历筛选 (按日历隐藏); 选择持久化
+- 网格: 起始月 1 日所在周 → 结束月末日所在周, 逐周连续, 月份间不断行; 月份 = 交替底色 + 阶梯粗线 + 左侧月份标注
+- 一屏铺满, 不滚动: 周行自上而下, 一栏放不下按阅读顺序续排到右侧下一栏; 横屏 / 竖屏自动重排
+- 全天 / 跨天事件 = 横条 (跨周分段, `◂` = 上周延续); 单日定时事件 = 色点 + 时间 + 标题, 空间富余时标题换行
+- 空间不足时日期格右上 `+N` 折叠, 悬停列出未显示日程; 悬停任一事件看完整详情
+- 系统日历变更 / 跨天 / 时区变化自动刷新
+
 ## 架构
 
 - Swift 6 + AppKit, 仅 macOS; NEVER 使用 SwiftUI
 - 纯代码 UI: `main.swift` 手动启动 `NSApplication` + `AppDelegate`; 无 storyboard / xib; 主菜单代码构建
 - 原生 `jj-calendar.xcodeproj` + shared scheme `jj-calendar`; `xcodebuild` 编译 / 组装 `.app` / 签名 (默认 ad-hoc, 传 Team 用 Apple Development)
-- macOS 14+ (EventKit `requestFullAccessToEvents` 起点); 无第三方依赖; 日历读取尚未实现
+- macOS 14+ (EventKit `requestFullAccessToEvents` 起点); 无第三方依赖
+- 数据: `CalendarStore` actor 持有唯一 `EKEventStore`, 查询在 actor 执行器上 → `Sendable` 值类型回主线程; `EKEventStoreChanged` 防抖 300ms 重读
+- 排版: `WeekLayout` 生成周行 (横条 lane 贪心分配) → `GridPlan` 按窗口尺寸选栏数 (优先全部展示, 其次行高 × 日宽) + water-filling 分配行数 → 视图只做摆放
 - Debug / Release 独立 PRODUCT_NAME + Bundle ID (`com.yigegongjiang.jj-calendar[.debug]`) + 图标 (Debug 带 D 标记)
 
-## 日历权限 (接入 EventKit 时)
+## 日历权限
 
 - EventKit 无只读授权级别: 读取需 full access (读写合一) → 只读由代码约束保证, 见 [核心要求](#核心要求must)
 - Info.plist: `INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription`; Reminders 接入时加 `INFOPLIST_KEY_NSRemindersFullAccessUsageDescription`
@@ -56,7 +64,12 @@ Swift + AppKit 实现的 macOS 日历查看器: 只读 macOS 系统日历 (Calen
 | --- | --- |
 | `Sources/jj-calendar/main.swift` | 入口: 启动 NSApplication |
 | `Sources/jj-calendar/AppDelegate.swift` | 窗口 + 主菜单 |
-| `Sources/jj-calendar/MainViewController.swift` | 主界面 (当前 Hello World) |
+| `Sources/jj-calendar/MainViewController.swift` | 主界面: 顶栏 + 授权 + 数据刷新 + 日历筛选 |
+| `Sources/jj-calendar/CalendarStore.swift` | EventKit 只读访问 (actor) |
+| `Sources/jj-calendar/WeekLayout.swift` | 连续周网格模型 + 一屏排版 `GridPlan` |
+| `Sources/jj-calendar/WeekGridView.swift` | 网格容器 + 星期表头 + 事件文案 |
+| `Sources/jj-calendar/WeekRowView.swift` | 周行 / 日期格 / 事件 chip 渲染 |
+| `Sources/jj-calendar/jj-calendar.entitlements` | Hardened Runtime 日历权限 |
 | `scripts/debug.sh` | Debug 构建 + 重启本 worktree 实例 |
 | `scripts/install-local.sh` | Release 构建 + 安装 + 打开 |
 | `.github/workflows/release.yml` | 手动触发 (按 tag) 构建 + GitHub Release |

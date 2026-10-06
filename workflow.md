@@ -15,7 +15,7 @@
 # 调试
 
 ```bash
-./scripts/debug.sh [DEVELOPMENT_TEAM]                        # 构建 Debug + 重启本 worktree 实例, 输出 pid=<PID>
+./scripts/debug.sh [DEVELOPMENT_TEAM]                        # 构建 Debug + 后台重启本 worktree 实例 (不抢前台), 输出 pid=<PID>
 ./scripts/debug.sh quit                                      # 退出本 worktree 实例
 ```
 
@@ -24,6 +24,7 @@
 - 多 worktree 并行: 各 worktree 实例并存 (同 bundle id, 按产物路径区分); 窗口标题显示 worktree 目录名
 - UI/UX 调试按 PID 定位目标实例 (多实例并存时目标确定); MUST NOT 用应用名 / bundle id 定位
 - MUST NOT 绕过 `debug.sh` 自行复制 / 改 bundle id 启动
+- 人类同时在用本机: 验证 MUST NOT 抢占前台 / 鼠标 / 键盘 → 禁用 peekaboo `--foreground`, 只用 `see` (截图 + AX 树); 需切换状态 (如月份区间) → 写 Debug bundle defaults (`com.yigegongjiang.jj-calendar.debug`) 后 `open -n -g --env JJCAL_DEBUG_TAG=<worktree>` 重启
 - 删除 worktree 前 → `./scripts/debug.sh quit`
 
 # 发布

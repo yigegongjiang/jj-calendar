@@ -14,13 +14,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = DebugInstance.tag.map { "\(appName) · \($0)" } ?? appName
-        window.contentMinSize = NSSize(width: 480, height: 320)
+        window.contentMinSize = NSSize(width: 720, height: 400)
         window.contentViewController = MainViewController()
         window.isReleasedWhenClosed = false
         window.center()
+        // 记住窗口位置 / 尺寸 (常用最大化).
+        window.setFrameAutosaveName("main")
         window.makeKeyAndOrderFront(nil)
         self.window = window
-        NSApp.activate()
+        // Debug 实例 (debug.sh 后台启动) 不抢占前台, 避免打断正在使用的 App.
+        if DebugInstance.tag == nil {
+            NSApp.activate()
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
