@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.8] - 2026-10-06
+
+### Changed
+
+- 月份交界更醒目: 新月份与上月之间画一条粗的强调色阶梯折线; 每月 1 日改为强调色实心标签「N月1日」, 1 月 1 日带年份
+  - `DayInfo.monthEdgeTop` (上方格属上月) / `monthEdgeLeading` (1 日且非行首); `DayCellView.drawMonthEdges` 3pt `controlAccentColor`
+
 ## [0.3.7] - 2026-10-06
 
 ### Changed

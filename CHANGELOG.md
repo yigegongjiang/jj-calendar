@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.3.8] - 2026-10-06
+
+### Changed
+
+- 月份交界更醒目: 新月份与上月之间画一条粗的强调色阶梯折线; 每月 1 日改为强调色实心标签「N月1日」, 1 月 1 日带年份
+
 ## [0.3.7] - 2026-10-06
 
 ### Changed
