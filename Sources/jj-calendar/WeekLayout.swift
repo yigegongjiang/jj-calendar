@@ -121,9 +121,9 @@ struct Typography: Equatable {
         (fontSize + 4).rounded()
     }
 
-    /// 日期号行高.
+    /// 日期号行高; 含 1 日标签上方留白 1pt.
     var header: CGFloat {
-        (fontSize + 3).rounded()
+        (fontSize + 4).rounded()
     }
 }
 
