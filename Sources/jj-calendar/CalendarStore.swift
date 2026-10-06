@@ -34,6 +34,8 @@ struct CalendarEvent: Sendable {
     let calendarTitle: String
     let color: RGBA
     let location: String?
+    /// 属于已忽略日历: 淡化 + 同位置排后 (优先被折叠); 由界面层设置.
+    var isIgnored = false
 }
 
 struct CalendarSnapshot: Sendable {

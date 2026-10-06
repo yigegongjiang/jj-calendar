@@ -44,6 +44,7 @@ final class MainViewController: NSViewController {
     /// 上次同步时的本月; 跨月时起始月仍为旧本月 -> 跟随到新本月.
     private var currentMonth = YearMonth(year: 2000, month: 1)
     private var hiddenCalendarIDs: Set<String>
+    private var ignoredCalendarIDs: Set<String>
     private var snapshot: CalendarSnapshot?
     private var generation = 0
     private var reloadTask: Task<Void, Never>?
@@ -51,6 +52,7 @@ final class MainViewController: NSViewController {
 
     init() {
         hiddenCalendarIDs = Set(ConfigStore.state.hiddenCalendarIDs)
+        ignoredCalendarIDs = Set(ConfigStore.state.ignoredCalendarIDs)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -128,8 +130,9 @@ final class MainViewController: NSViewController {
         calendarsButton.controlSize = .small
         calendarsButton.bezelStyle = .push
         calendarsButton.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
-        filterController.onChange = { [weak self] hidden in
+        filterController.onChange = { [weak self] hidden, ignored in
             self?.hiddenCalendarIDs = hidden
+            self?.ignoredCalendarIDs = ignored
             self?.persistHidden()
         }
         rowSpanControl.setAccessibilityIdentifier("rowSpanControl")
@@ -256,7 +259,12 @@ final class MainViewController: NSViewController {
     private func relayout() {
         guard let snapshot else { return }
         let range = range
-        let events = snapshot.events.filter { !hiddenCalendarIDs.contains($0.calendarID) }
+        let events = snapshot.events.compactMap { event -> CalendarEvent? in
+            guard !hiddenCalendarIDs.contains(event.calendarID) else { return nil }
+            var event = event
+            event.isIgnored = ignoredCalendarIDs.contains(event.calendarID)
+            return event
+        }
         let rows = WeekLayout.build(range: range, span: rowSpan, events: events, calendar: calendar, now: Date())
         gridView.update(rows: rows, calendar: calendar)
 
@@ -350,8 +358,9 @@ extension MainViewController {
 
 extension MainViewController {
     private func rebuildCalendarsMenu(_ calendars: [CalendarSummary]) {
-        filterController.update(calendars: calendars, hidden: hiddenCalendarIDs)
-        let hidden = calendars.count { hiddenCalendarIDs.contains($0.id) }
+        filterController.update(calendars: calendars, hidden: hiddenCalendarIDs, ignored: ignoredCalendarIDs)
+        // 已忽略日历的隐藏不计入: 常态隐藏不应常驻提示.
+        let hidden = calendars.count { hiddenCalendarIDs.contains($0.id) && !ignoredCalendarIDs.contains($0.id) }
         calendarsButton.title = hidden == 0 ? "日历 ▾" : "日历 (隐藏 \(hidden)) ▾"
     }
 
@@ -366,7 +375,10 @@ extension MainViewController {
     }
 
     private func persistHidden() {
-        ConfigStore.update { [hiddenCalendarIDs] in $0.hiddenCalendarIDs = hiddenCalendarIDs.sorted() }
+        ConfigStore.update { [hiddenCalendarIDs, ignoredCalendarIDs] in
+            $0.hiddenCalendarIDs = hiddenCalendarIDs.sorted()
+            $0.ignoredCalendarIDs = ignoredCalendarIDs.sorted()
+        }
         if let snapshot {
             rebuildCalendarsMenu(snapshot.calendars)
         }

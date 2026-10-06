@@ -9,6 +9,8 @@ struct AppState: Codable, Equatable {
     var fontSize = 10.0
     var ignoreMonthTint = false
     var hiddenCalendarIDs: [String] = []
+    /// 不参与批量显示 / 隐藏, 事件淡化.
+    var ignoredCalendarIDs: [String] = []
     var window: WindowFrame?
 }
 
@@ -33,6 +35,7 @@ struct AppConfig: Codable, Equatable {
         var barOpacityLight = 0.25
         var barOpacityDark = 0.4
         var pastOpacity = 0.6
+        var ignoredOpacity = 0.3
     }
 
     struct Layout: Codable, Equatable {
@@ -57,6 +60,7 @@ struct AppConfig: Codable, Equatable {
         clamp(&result.appearance.barOpacityLight, 0...1)
         clamp(&result.appearance.barOpacityDark, 0...1)
         clamp(&result.appearance.pastOpacity, 0.1...1)
+        clamp(&result.appearance.ignoredOpacity, 0.1...1)
         result.layout.minLinesBeforeScroll = min(max(layout.minLinesBeforeScroll, 1), 20)
         let colors: [(String, WritableKeyPath<Appearance, String>)] = [
             ("monthTintColor", \.monthTintColor), ("todayColor", \.todayColor),
@@ -200,6 +204,7 @@ enum ConfigStore {
         "barOpacityLight": "全天 / 跨天横条底色不透明度 (浅色模式), 0–1.",
         "barOpacityDark": "全天 / 跨天横条底色不透明度 (深色模式), 0–1.",
         "pastOpacity": "已结束日程不透明度, 0.1–1.",
+        "ignoredOpacity": "已忽略日历的日程不透明度, 0.1–1.",
         "layout": "排版",
         "minLinesBeforeScroll": "铺满窗口时每行至少展示的日程行数, 1–20; 放不下改为纵向滚动."
     ]

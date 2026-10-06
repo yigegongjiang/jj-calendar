@@ -213,7 +213,11 @@ enum WeekLayout {
     private static func assemble(
         columns: Int, days: [DayInfo], segments: [Segment], timed: [[CalendarEvent]], today: Date
     ) -> WeekRow {
+        // 已忽略日历排最后: 分到靠下的 lane, 空间不足时优先被折叠.
         let sorted = segments.sorted {
+            if $0.event.isIgnored != $1.event.isIgnored {
+                return !$0.event.isIgnored
+            }
             if $0.start != $1.start {
                 return $0.start < $1.start
             }
@@ -239,7 +243,11 @@ enum WeekLayout {
                 continued: segment.continued, isPast: segment.event.end.addingTimeInterval(-1) < today
             ))
         }
-        let dayEvents = timed.map { $0.sorted { ($0.start, $0.title) < ($1.start, $1.title) } }
+        let dayEvents = timed.map {
+            $0.sorted {
+                $0.isIgnored != $1.isIgnored ? !$0.isIgnored : ($0.start, $0.title) < ($1.start, $1.title)
+            }
+        }
         let lanes = days.indices.map { col in (occupied.lastIndex { $0[col] } ?? -1) + 1 }
         return WeekRow(
             columns: columns, days: days, bars: bars, lanesPerColumn: lanes,

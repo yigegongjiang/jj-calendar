@@ -283,7 +283,8 @@ final class EventChipView: NSView {
         titleText = title
         compactWidth = textX + prefix.size().width + fontSize * 3
         super.init(frame: .zero)
-        alphaValue = dimmed ? AppConfig.current.appearance.pastOpacity : 1
+        let appearance = AppConfig.current.appearance
+        alphaValue = event.isIgnored ? appearance.ignoredOpacity : dimmed ? appearance.pastOpacity : 1
         let detail = EventText.detail(event, calendar: calendar)
         toolTip = detail
         setAccessibilityElement(true)
