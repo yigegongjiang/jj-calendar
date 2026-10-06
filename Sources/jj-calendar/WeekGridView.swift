@@ -1,10 +1,10 @@
 import AppKit
 
-/// 列坐标: 左侧 gutter 显示月份, 其余宽度 7 等分.
+/// 列坐标: 宽度 7 等分.
 @MainActor
 enum WeekGeometry {
     static func columnX(_ col: Int, width: CGFloat) -> CGFloat {
-        WeekMetrics.gutter + ((width - WeekMetrics.gutter) * CGFloat(col) / 7).rounded()
+        (width * CGFloat(col) / 7).rounded()
     }
 }
 
@@ -115,7 +115,7 @@ final class WeekGridView: NSView {
             view.frame = placement.frame
             view.apply(WeekRowView.Config(
                 generation: generation, typography: typography, capacity: placement.capacity,
-                isColumnTop: placement.isColumnTop, monthTint: monthTint
+                monthTint: monthTint
             ), row: rows[index], calendar: calendar)
         }
         let folded = rowViews.reduce(0) { $0 + $1.hiddenTotal }

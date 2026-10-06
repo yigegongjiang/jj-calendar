@@ -64,7 +64,6 @@ struct WeekRow {
 }
 
 enum WeekMetrics {
-    static let gutter: CGFloat = 26
     static let bottomPad: CGFloat = 1
     /// 星期表头高度.
     static let columnHeader: CGFloat = 16
@@ -228,7 +227,6 @@ struct GridPlan {
         let frame: NSRect
         /// 本周可展示的事件行数; 超出部分在日期格折叠为 +N.
         let capacity: Int
-        let isColumnTop: Bool
     }
 
     let columnFrames: [NSRect]
@@ -243,7 +241,7 @@ struct GridPlan {
         let line = typography.line
         let fixed = typography.header + WeekMetrics.bottomPad
         let height = size.height - WeekMetrics.columnHeader
-        let fit = Int(size.width / (WeekMetrics.gutter + 7 * WeekMetrics.minDayWidth))
+        let fit = Int(size.width / (7 * WeekMetrics.minDayWidth))
         let maxColumns = max(1, min(WeekMetrics.maxFlowColumns, rows.count, fit))
 
         var best: Candidate?
@@ -256,7 +254,7 @@ struct GridPlan {
                 let available = ((height - CGFloat(chunk.count) * fixed) / line).rounded(.down)
                 return min(max(available, 0) / CGFloat(needed), 1)
             }.min() ?? 1
-            let dayWidth = (size.width / CGFloat(chunks.count) - WeekMetrics.gutter) / 7
+            let dayWidth = size.width / CGFloat(chunks.count) / 7
             // 折叠 (+N) 代价远高于截断: 可展示比例 4 次方, 其次日宽.
             let score = pow(shown, 4) * min(dayWidth / WeekMetrics.comfortableDayWidth, 1)
             if best == nil || score > best!.score + 0.001 {
@@ -276,15 +274,13 @@ struct GridPlan {
             let budget = allocate(rows[chunk].map(\.lines), budget: Int(max(0, available) / line))
             let extra = (available - CGFloat(budget.reduce(0, +)) * line) / CGFloat(chunk.count)
             var y = WeekMetrics.columnHeader
-            for (offset, row) in chunk.enumerated() {
+            for offset in 0..<chunk.count {
                 let content = CGFloat(budget[offset]) * line + max(0, extra)
                 let top = y.rounded()
                 y += fixed + content
                 let frame = NSRect(x: x, y: top, width: nextX - x, height: y.rounded() - top)
                 let capacity = Int(((frame.height - fixed) / line + 0.01).rounded(.down))
-                placements.append(Placement(
-                    frame: frame, capacity: max(0, capacity), isColumnTop: row == chunk.lowerBound
-                ))
+                placements.append(Placement(frame: frame, capacity: max(0, capacity)))
             }
         }
         return GridPlan(columnFrames: columnFrames, placements: placements)

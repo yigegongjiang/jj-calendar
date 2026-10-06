@@ -6,7 +6,6 @@ final class WeekRowView: NSView {
         let generation: Int
         let typography: Typography
         let capacity: Int
-        let isColumnTop: Bool
         let monthTint: Bool
     }
 
@@ -112,34 +111,9 @@ final class WeekRowView: NSView {
             )
         }
     }
-
-    /// gutter: 本行含某月 1 日 (或为栏首行) 时标注月份 + 年.
-    override func draw(_: NSRect) {
-        let gutter = NSRect(x: 0, y: 0, width: WeekMetrics.gutter, height: bounds.height)
-        NSColor.windowBackgroundColor.setFill()
-        gutter.fill()
-        NSColor.separatorColor.setFill()
-        NSRect(x: 0, y: bounds.height - 1, width: WeekMetrics.gutter, height: 1).fill()
-
-        guard let row, let config else { return }
-        let firstOfMonth = row.days.first { $0.inRange && $0.day == 1 }
-        guard let day = firstOfMonth ?? (config.isColumnTop ? row.days.first { $0.inRange } : nil) else { return }
-        let month = NSAttributedString(string: "\(day.month)月", attributes: [
-            .font: NSFont.boldSystemFont(ofSize: 11),
-            .foregroundColor: firstOfMonth == nil ? NSColor.secondaryLabelColor : NSColor.labelColor
-        ])
-        let year = NSAttributedString(string: String(day.year), attributes: [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .regular),
-            .foregroundColor: NSColor.secondaryLabelColor
-        ])
-        month.draw(at: NSPoint(x: (WeekMetrics.gutter - month.size().width) / 2, y: 1))
-        if bounds.height >= 26 {
-            year.draw(at: NSPoint(x: (WeekMetrics.gutter - year.size().width) / 2, y: month.size().height + 1))
-        }
-    }
 }
 
-/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日显示「N月1日」) + 折叠数 +N.
+/// 日期格: 月份底色微弱交替 (可关) + 日期号 (1 日加粗显示「N月1日」, 区分月份) + 折叠数 +N.
 final class DayCellView: NSView {
     private var info: DayInfo?
     private var hiddenCount = 0
@@ -187,7 +161,9 @@ final class DayCellView: NSView {
         let isWeekend = info.weekday == 1 || info.weekday == 7
         let text = info.day == 1 ? "\(info.month)月1日" : "\(info.day)"
         let color: NSColor = info.isToday ? .white
-            : info.inRange ? (isWeekend || info.isPast ? .secondaryLabelColor : .labelColor) : .tertiaryLabelColor
+            : !info.inRange ? .tertiaryLabelColor
+            : info.isPast ? .secondaryLabelColor
+            : isWeekend && info.day != 1 ? .secondaryLabelColor : .labelColor
         let label = NSAttributedString(string: text, attributes: [
             .font: NSFont.monospacedDigitSystemFont(
                 ofSize: fontSize - 0.5, weight: info.day == 1 || info.isToday ? .bold : .regular
