@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.3.3] - 2026-10-06
+
+### Added
+
+- 新增 `~/.config/jj-calendar/config.jsonc`: 可自定义隔月背景色 / 强度、今天 / 周末 / +N 颜色、横条与已结束日程不透明度、滚动阈值; 改后重启生效
+  - `AppConfig` (appearance / layout) JSON5 解析 + 默认值合并 + `normalized()`; `config.default.jsonc` 启动刷新; `AppConfig.current` 启动读取一次
+
 ## [0.3.2] - 2026-10-06
 
 ### Changed

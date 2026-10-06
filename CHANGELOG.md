@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.3.3] - 2026-10-06
+
+### Added
+
+- 新增 `~/.config/jj-calendar/config.jsonc`: 可自定义隔月背景色 / 强度、今天 / 周末 / +N 颜色、横条与已结束日程不透明度、滚动阈值; 改后重启生效
+
 ## [0.3.2] - 2026-10-06
 
 ### Changed
