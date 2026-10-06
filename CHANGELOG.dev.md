@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.4.1] - 2026-10-06
+
+### Fixed
+
+- 1 日标签仅区间首月 / 每年 1 月带年份 (`2027-01-01`), 其余为 `02-01`; 标签左右留白加大
+  - `DayInfo.showsYear` (区间首日 / 1 月 1 日) + `DayCellView.draw` 标签 padding 3 -> 5
+
 ## [0.4.0] - 2026-10-06
 
 ### Added
