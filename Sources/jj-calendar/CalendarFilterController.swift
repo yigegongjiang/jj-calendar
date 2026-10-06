@@ -1,6 +1,6 @@
 import AppKit
 
-/// 日历筛选面板 (popover): 复选框可连续勾选, 面板不关闭; 「仅」按钮 / ⌥ 点击某日历 = 只显示它.
+/// 日历筛选面板 (popover): 复选框可连续勾选, 面板不关闭; 「只显示」按钮 / ⌥ 点击某日历 = 只显示它.
 final class CalendarFilterController: NSViewController {
     var onChange: ((Set<String>) -> Void)?
 
@@ -9,7 +9,6 @@ final class CalendarFilterController: NSViewController {
     private var checkboxes: [NSButton] = []
     private var grid: NSGridView?
     private let font = NSFont.systemFont(ofSize: 12)
-    private let smallFont = NSFont.systemFont(ofSize: 11)
 
     override func loadView() {
         view = NSView()
@@ -30,14 +29,14 @@ final class CalendarFilterController: NSViewController {
         _ = view
         grid?.removeFromSuperview()
         checkboxes = []
-        let showAll = textButton("全部显示", action: #selector(showAll))
-        let hideAll = textButton("全部隐藏", action: #selector(hideAll))
+        let showAll = pushButton("全部显示", size: .small, action: #selector(showAll))
+        let hideAll = pushButton("全部隐藏", size: .small, action: #selector(hideAll))
         showAll.setAccessibilityIdentifier("calendarsShowAll")
         hideAll.setAccessibilityIdentifier("calendarsHideAll")
         let actions = NSStackView(views: [showAll, hideAll])
-        actions.spacing = 12
+        actions.spacing = 6
 
-        // 两列 grid 四边钉死 (popover 尺寸 = grid fittingSize): 复选框左对齐, 「仅」统一贴右, 长标题截断不撑歪布局.
+        // 两列 grid 四边钉死 (popover 尺寸 = grid fittingSize): 复选框左对齐, 「只显示」统一贴右, 长标题截断不撑歪布局.
         let grid = NSGridView(numberOfColumns: 2, rows: 0)
         grid.rowSpacing = 3
         grid.columnSpacing = 10
@@ -80,18 +79,19 @@ final class CalendarFilterController: NSViewController {
         checkbox.setAccessibilityLabel(summary.title)
         checkbox.toolTip = "\(summary.title)\n⌥ 点击: 只显示此日历"
         checkboxes.append(checkbox)
-        let only = textButton("仅", action: #selector(showOnlyButton(_:)))
+        let only = pushButton("只显示", size: .mini, action: #selector(showOnlyButton(_:)))
         only.identifier = checkbox.identifier
         only.toolTip = "只显示此日历"
         only.setAccessibilityLabel("只显示 \(summary.title)")
         return [checkbox, only]
     }
 
-    private func textButton(_ title: String, action: Selector) -> NSButton {
+    /// 标准圆角按钮 (有边框 = 一眼可认出可点击).
+    private func pushButton(_ title: String, size: NSControl.ControlSize, action: Selector) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
-        button.isBordered = false
-        button.font = smallFont
-        button.contentTintColor = .secondaryLabelColor
+        button.bezelStyle = .push
+        button.controlSize = size
+        button.font = .systemFont(ofSize: NSFont.systemFontSize(for: size))
         return button
     }
 
