@@ -1,12 +1,12 @@
 import AppKit
 import EventKit
 
-/// 主界面: 年份 + 起止月份 -> 一屏连续周网格展示区间内全部日程 (不滚动); 结束月 < 起始月时跨入次年.
+/// 主界面: 起止年月 (可跨年) -> 一屏连续周网格展示区间内全部日程 (不滚动).
 final class MainViewController: NSViewController {
     private enum Key {
-        static let year = "range.year"
-        static let startMonth = "range.startMonth"
-        static let endMonth = "range.endMonth"
+        /// YearMonth.index.
+        static let start = "range.start"
+        static let end = "range.end"
         static let hiddenCalendars = "hiddenCalendarIDs"
         static let fontSize = "fontSize"
     }
@@ -14,9 +14,10 @@ final class MainViewController: NSViewController {
     private let store = CalendarStore()
     private let defaults = UserDefaults.standard
 
-    private let yearPopup = NSPopUpButton()
-    private let startPopup = NSPopUpButton()
-    private let endPopup = NSPopUpButton()
+    private let startYearPopup = NSPopUpButton()
+    private let startMonthPopup = NSPopUpButton()
+    private let endYearPopup = NSPopUpButton()
+    private let endMonthPopup = NSPopUpButton()
     private let calendarsButton = NSButton(title: "日历", target: nil, action: nil)
     private let filterController = CalendarFilterController()
     private lazy var filterPopover: NSPopover = {
@@ -27,17 +28,13 @@ final class MainViewController: NSViewController {
     }()
 
     private let summaryLabel = NSTextField(labelWithString: "")
-    private let smallerButton = NSButton(title: "A−", target: nil, action: nil)
-    private let largerButton = NSButton(title: "A+", target: nil, action: nil)
-    private let fontLabel = NSTextField(labelWithString: "")
     private let gridView = WeekGridView()
     private let messageLabel = NSTextField(wrappingLabelWithString: "")
     private let settingsButton = NSButton(title: "打开日历隐私设置", target: nil, action: nil)
 
     private var calendar = WeekLayout.calendar()
-    private var year = 0
-    private var startMonth = 1
-    private var endMonth = 1
+    private var start = YearMonth(year: 2000, month: 1)
+    private var end = YearMonth(year: 2000, month: 1)
     private var hiddenCalendarIDs: Set<String>
     private var snapshot: CalendarSnapshot?
     private var generation = 0
@@ -60,10 +57,12 @@ final class MainViewController: NSViewController {
         configureControls()
 
         let toolbar = NSStackView(views: [
-            yearPopup, startPopup, NSTextField(labelWithString: "至"), endPopup, calendarsButton,
-            smallerButton, fontLabel, largerButton, summaryLabel
+            startYearPopup, startMonthPopup, NSTextField(labelWithString: "–"), endYearPopup, endMonthPopup,
+            calendarsButton, summaryLabel
         ])
-        toolbar.spacing = 6
+        toolbar.spacing = 4
+        toolbar.setCustomSpacing(12, after: endMonthPopup)
+        toolbar.setCustomSpacing(12, after: calendarsButton)
         toolbar.edgeInsets = NSEdgeInsets(top: 2, left: 4, bottom: 2, right: 4)
         toolbar.setHuggingPriority(.defaultHigh, for: .vertical)
         summaryLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -100,16 +99,19 @@ final class MainViewController: NSViewController {
 
     private func configureControls() {
         let months = (1...12).map { "\($0)月" }
-        startPopup.addItems(withTitles: months)
-        endPopup.addItems(withTitles: months)
-        rebuildYearPopup()
-        startPopup.selectItem(at: startMonth - 1)
-        endPopup.selectItem(at: endMonth - 1)
+        startMonthPopup.addItems(withTitles: months)
+        endMonthPopup.addItems(withTitles: months)
+        syncRangeControls()
 
-        for (popup, id) in [(yearPopup, "yearPopup"), (startPopup, "startMonthPopup"), (endPopup, "endMonthPopup")] {
+        for (popup, id) in [
+            (startYearPopup, "startYearPopup"), (startMonthPopup, "startMonthPopup"),
+            (endYearPopup, "endYearPopup"), (endMonthPopup, "endMonthPopup")
+        ] {
             popup.target = self
-            popup.action = #selector(rangeChanged)
+            popup.action = #selector(rangeChanged(_:))
             popup.setAccessibilityIdentifier(id)
+            popup.controlSize = .small
+            popup.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         }
         calendarsButton.setAccessibilityIdentifier("calendarsButton")
         calendarsButton.target = self
@@ -121,55 +123,16 @@ final class MainViewController: NSViewController {
             self?.hiddenCalendarIDs = hidden
             self?.persistHidden()
         }
-        for popup in [yearPopup, startPopup, endPopup] {
-            popup.controlSize = .small
-            popup.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
-        }
-        configureFontControls()
+        let savedFont = defaults.object(forKey: Key.fontSize) as? Double
+        applyFontSize(savedFont.map { CGFloat($0) } ?? Typography.standard)
         summaryLabel.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         summaryLabel.textColor = .secondaryLabelColor
         summaryLabel.lineBreakMode = .byTruncatingTail
         summaryLabel.setAccessibilityIdentifier("summaryLabel")
     }
 
-    /// 年份候选 = 当前年 ±3 (运行时计算) ∪ 已选年份.
-    private func rebuildYearPopup() {
-        let current = calendar.component(.year, from: Date())
-        let years = min(current - 3, year)...max(current + 3, year)
-        yearPopup.removeAllItems()
-        yearPopup.addItems(withTitles: years.map { "\($0)年" })
-        for (item, value) in zip(yearPopup.itemArray, years) {
-            item.tag = value
-        }
-        yearPopup.selectItem(withTag: year)
-    }
-
-    private func restoreRange() {
-        let current = calendar.dateComponents([.year, .month], from: Date())
-        year = defaults.object(forKey: Key.year) as? Int ?? current.year!
-        startMonth = defaults.object(forKey: Key.startMonth) as? Int ?? current.month!
-        endMonth = defaults.object(forKey: Key.endMonth) as? Int ?? (current.month! + 4) % 12 + 1
-        if !(1...12).contains(startMonth) {
-            startMonth = current.month!
-        }
-        if !(1...12).contains(endMonth) {
-            endMonth = startMonth
-        }
-    }
-
-    @objc
-    private func rangeChanged() {
-        year = yearPopup.selectedTag()
-        startMonth = startPopup.indexOfSelectedItem + 1
-        endMonth = endPopup.indexOfSelectedItem + 1
-        defaults.set(year, forKey: Key.year)
-        defaults.set(startMonth, forKey: Key.startMonth)
-        defaults.set(endMonth, forKey: Key.endMonth)
-        reload()
-    }
-
     private var range: MonthRange {
-        WeekLayout.range(year: year, startMonth: startMonth, endMonth: endMonth, calendar: calendar)
+        WeekLayout.range(start: start, end: end, calendar: calendar)
     }
 
     // MARK: - Data
@@ -236,7 +199,7 @@ final class MainViewController: NSViewController {
         let dayChanged = Notification.Name.NSCalendarDayChanged
         observers.tokens.append(center.addObserver(forName: dayChanged, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.rebuildYearPopup()
+                self?.syncRangeControls()
                 self?.relayout()
             }
         })
@@ -260,11 +223,7 @@ final class MainViewController: NSViewController {
         gridView.update(rows: rows, calendar: calendar, symbols: weekdaySymbols())
 
         let inRange = events.count { $0.end > range.start && $0.start < range.end }
-        let last = calendar.date(byAdding: .month, value: -1, to: range.end)!
-        let first = calendar.dateComponents([.year, .month], from: range.start)
-        let end = calendar.dateComponents([.year, .month], from: last)
-        let span = "\(first.year!)年\(first.month!)月 – \(end.year!)年\(end.month!)月"
-        summaryLabel.stringValue = "\(span) · \(range.months) 个月 · \(inRange) 个日程"
+        summaryLabel.stringValue = "\(range.months) 个月 · \(inRange) 个日程"
     }
 
     private func weekdaySymbols() -> [(text: String, isWeekend: Bool)] {
@@ -278,29 +237,74 @@ final class MainViewController: NSViewController {
     }
 }
 
-// MARK: - Font size (⌘+ / ⌘- / ⌘0, 菜单经响应链调用)
+// MARK: - Range (起止年月, 可跨年)
 
 extension MainViewController {
-    private func configureFontControls() {
-        for (button, id, action) in [
-            (smallerButton, "fontSmallerButton", #selector(decreaseFontSize(_:))),
-            (largerButton, "fontLargerButton", #selector(increaseFontSize(_:)))
-        ] {
-            button.target = self
-            button.action = action
-            button.controlSize = .small
-            button.bezelStyle = .push
-            button.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
-            button.setAccessibilityIdentifier(id)
+    /// 年份候选 = 当前年 ±3 (运行时计算) ∪ 已选年份; 选中项与 start / end 同步.
+    private func syncRangeControls() {
+        let current = calendar.component(.year, from: Date())
+        let years = min(current - 3, start.year)...max(current + 3, end.year)
+        for (popup, value) in [(startYearPopup, start), (endYearPopup, end)] {
+            popup.removeAllItems()
+            popup.addItems(withTitles: years.map { "\($0)年" })
+            for (item, year) in zip(popup.itemArray, years) {
+                item.tag = year
+            }
+            popup.selectItem(withTag: value.year)
         }
-        smallerButton.toolTip = "缩小字号 (⌘-)"
-        largerButton.toolTip = "放大字号 (⌘+)"
-        fontLabel.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize(for: .small), weight: .regular)
-        fontLabel.setAccessibilityIdentifier("fontSizeLabel")
-        let saved = defaults.object(forKey: Key.fontSize) as? Double
-        applyFontSize(saved.map { CGFloat($0) } ?? Typography.standard)
+        startMonthPopup.selectItem(at: start.month - 1)
+        endMonthPopup.selectItem(at: end.month - 1)
     }
 
+    private func restoreRange() {
+        let now = calendar.dateComponents([.year, .month], from: Date())
+        let current = YearMonth(year: now.year!, month: now.month!)
+        if let first = defaults.object(forKey: Key.start) as? Int, let last = defaults.object(forKey: Key.end) as? Int,
+           first <= last {
+            start = YearMonth(index: first)
+            end = YearMonth(index: last)
+        } else if let year = defaults.object(forKey: "range.year") as? Int,
+                  let first = defaults.object(forKey: "range.startMonth") as? Int,
+                  let last = defaults.object(forKey: "range.endMonth") as? Int,
+                  (1...12).contains(first), (1...12).contains(last) {
+            // v0.2.x: 单一年份 + 起止月, 结束月 < 起始月表示跨入次年.
+            start = YearMonth(year: year, month: first)
+            end = YearMonth(year: last >= first ? year : year + 1, month: last)
+        } else {
+            start = current
+            end = YearMonth(index: current.index + 4)
+        }
+        for legacy in ["range.year", "range.startMonth", "range.endMonth"] {
+            defaults.removeObject(forKey: legacy)
+        }
+        defaults.set(start.index, forKey: Key.start)
+        defaults.set(end.index, forKey: Key.end)
+    }
+
+    /// 起止颠倒时移动另一端: 改起点 -> 终点保持原跨度随之后移; 改终点 -> 起点跟随.
+    @objc
+    private func rangeChanged(_ sender: NSPopUpButton) {
+        var newStart = YearMonth(year: startYearPopup.selectedTag(), month: startMonthPopup.indexOfSelectedItem + 1)
+        var newEnd = YearMonth(year: endYearPopup.selectedTag(), month: endMonthPopup.indexOfSelectedItem + 1)
+        if newStart > newEnd {
+            if sender === startYearPopup || sender === startMonthPopup {
+                newEnd = YearMonth(index: newStart.index + end.index - start.index)
+            } else {
+                newStart = newEnd
+            }
+        }
+        start = newStart
+        end = newEnd
+        defaults.set(start.index, forKey: Key.start)
+        defaults.set(end.index, forKey: Key.end)
+        syncRangeControls()
+        reload()
+    }
+}
+
+// MARK: - Font size (仅菜单 ⌘+ / ⌘- / ⌘0, 经响应链调用; 界面不放字号控件)
+
+extension MainViewController {
     @objc
     func increaseFontSize(_: Any?) {
         applyFontSize(gridView.typography.fontSize + 1)
@@ -320,9 +324,6 @@ extension MainViewController {
         let typography = Typography(fontSize: size)
         gridView.typography = typography
         defaults.set(Double(typography.fontSize), forKey: Key.fontSize)
-        fontLabel.stringValue = "字号 \(Int(typography.fontSize))"
-        smallerButton.isEnabled = typography.fontSize > Typography.range.lowerBound
-        largerButton.isEnabled = typography.fontSize < Typography.range.upperBound
     }
 }
 

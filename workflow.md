@@ -19,12 +19,12 @@
 ./scripts/debug.sh quit                                      # 退出本 worktree 实例 (删 worktree 前执行)
 ```
 
-UI 验证 = peekaboo MCP 工具 (`see` / `click` / `set_value`), 按 PID 定位; 界面变更截图核对: 区间 2 / 6 / 12 个月 × 横屏 / 竖屏 × 全部 / 部分日历
+UI 验证 = peekaboo MCP 工具 (`see` / `click` / `set_value`), 按 PID 定位; 界面变更截图核对: 区间 2 / 6 / 12 / 20 (跨年) 个月 × 横屏 / 竖屏 × 全部 / 部分日历; 截图逐张肉眼核对 (深色模式), AX 数字不能代替
 
 > 人类同时在用本机: NEVER 在 Bash 调 peekaboo CLI (`--foreground` 绕过 MCP 后台限制); MCP 拒绝的操作 MUST NOT 改用前台 / osascript
 
-- 后台可操作: 按钮 (`A−` / `A+` / 日历筛选) + 筛选 popover 复选框; 换屏 / 尺寸 → MCP `window` (set-bounds)
-- 后台不可操作: 年 / 月 `NSPopUpButton` → `debug.sh quit` + `defaults write com.yigegongjiang.jj-calendar.debug range.year|range.startMonth|range.endMonth -int N` + `debug.sh`
+- 后台可操作: 日历筛选按钮 + popover 复选框 + View 菜单字号 (放大 / 缩小 / 默认字号; target 直连, 不需 key window); 换屏 / 尺寸 → MCP `window` (set-bounds)
+- 后台不可操作: 年 / 月 `NSPopUpButton` → `debug.sh quit` + `defaults write com.yigegongjiang.jj-calendar.debug range.start|range.end -int N` (N = 年 × 12 + 月 − 1) + `debug.sh`
 
 # 发布
 

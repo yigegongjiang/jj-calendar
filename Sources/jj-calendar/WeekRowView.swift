@@ -138,7 +138,7 @@ final class WeekRowView: NSView {
     }
 }
 
-/// 日期格: 月份底色仅微弱交替 (主要靠阶梯粗线区分月份, 不干扰内容) + 日期号 + 折叠数 +N.
+/// 日期格: 月份底色仅微弱交替 + 1px 阶梯月界 + 日期号 (1 日显示「N月1日」) + 折叠数 +N.
 final class DayCellView: NSView {
     private var info: DayInfo?
     private var hiddenCount = 0
@@ -178,13 +178,13 @@ final class DayCellView: NSView {
         NSColor.separatorColor.setFill()
         NSRect(x: bounds.maxX - 1, y: 0, width: 1, height: bounds.height).fill()
         NSRect(x: 0, y: bounds.maxY - 1, width: bounds.width, height: 1).fill()
-        // 月界: 本月第一周顶边 + 1 日左边, 连成阶梯线.
-        NSColor.labelColor.withAlphaComponent(0.55).setFill()
+        // 月界: 本月第一周顶边 + 1 日左边, 连成阶梯线; 1px, 仅比格线略深.
+        NSColor.tertiaryLabelColor.setFill()
         if info.day <= 7 {
-            NSRect(x: 0, y: 0, width: bounds.width, height: 2).fill()
+            NSRect(x: 0, y: 0, width: bounds.width, height: 1).fill()
         }
         if info.day == 1 {
-            NSRect(x: 0, y: 0, width: 2, height: bounds.height).fill()
+            NSRect(x: 0, y: 0, width: 1, height: bounds.height).fill()
         }
 
         let isWeekend = info.weekday == 1 || info.weekday == 7

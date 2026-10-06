@@ -5,7 +5,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
 
     func applicationDidFinishLaunching(_: Notification) {
-        NSApp.mainMenu = makeMainMenu()
+        let controller = MainViewController()
+        NSApp.mainMenu = makeMainMenu(fontTarget: controller)
 
         let window = NSWindow(
             contentRect: .zero,
@@ -15,7 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.title = DebugInstance.tag.map { "\(appName) · \($0)" } ?? appName
         window.contentMinSize = NSSize(width: 720, height: 400)
-        window.contentViewController = MainViewController()
+        window.contentViewController = controller
         window.isReleasedWhenClosed = false
         window.center()
         // 记住窗口位置 / 尺寸 (常用最大化).
@@ -37,7 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// 无 nib 时系统不生成菜单栏; 最小菜单保证 ⌘Q / ⌘W / ⌘M 可用.
-    private func makeMainMenu() -> NSMenu {
+    private func makeMainMenu(fontTarget: MainViewController) -> NSMenu {
         let appMenu = NSMenu()
         let quit = #selector(NSApplication.terminate(_:))
         appMenu.addItem(withTitle: "Quit \(appName)", action: quit, keyEquivalent: "q")
@@ -48,14 +49,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowMenu.addItem(withTitle: "Minimize", action: minimize, keyEquivalent: "m")
         NSApp.windowsMenu = windowMenu
 
-        // 字号: target = nil 走响应链到 MainViewController.
+        // 字号: 直接指向 controller, 不依赖 key window 响应链 (后台 AX 调用同样可用).
         let viewMenu = NSMenu(title: "View")
         let larger = #selector(MainViewController.increaseFontSize(_:))
         let smaller = #selector(MainViewController.decreaseFontSize(_:))
         let reset = #selector(MainViewController.resetFontSize(_:))
-        viewMenu.addItem(withTitle: "放大字号", action: larger, keyEquivalent: "=")
+        viewMenu.addItem(withTitle: "放大字号", action: larger, keyEquivalent: "+")
+        // 隐藏项: 不按 Shift 的 ⌘= 同样放大.
+        let largerAlias = viewMenu.addItem(withTitle: "放大字号", action: larger, keyEquivalent: "=")
+        largerAlias.isHidden = true
+        largerAlias.allowsKeyEquivalentWhenHidden = true
         viewMenu.addItem(withTitle: "缩小字号", action: smaller, keyEquivalent: "-")
         viewMenu.addItem(withTitle: "默认字号", action: reset, keyEquivalent: "0")
+        viewMenu.items.forEach { $0.target = fontTarget }
 
         let mainMenu = NSMenu()
         for submenu in [appMenu, viewMenu, windowMenu] {

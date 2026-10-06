@@ -7,6 +7,29 @@ struct MonthRange: Equatable {
     let months: Int
 }
 
+/// 年 + 月; index = 自公元 0 年起的月序号, 便于比较 / 跨年加减.
+struct YearMonth: Comparable {
+    let year: Int
+    let month: Int
+
+    init(year: Int, month: Int) {
+        self.year = year
+        self.month = month
+    }
+
+    init(index: Int) {
+        self.init(year: index / 12, month: index % 12 + 1)
+    }
+
+    var index: Int {
+        year * 12 + month - 1
+    }
+
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.index < rhs.index
+    }
+}
+
 struct DayInfo {
     let date: Date
     let day: Int
@@ -82,11 +105,11 @@ enum WeekLayout {
         return calendar
     }
 
-    static func range(year: Int, startMonth: Int, endMonth: Int, calendar: Calendar) -> MonthRange {
-        let months = endMonth >= startMonth ? endMonth - startMonth + 1 : 12 - startMonth + endMonth + 1
-        let start = calendar.date(from: DateComponents(year: year, month: startMonth, day: 1))!
-        let end = calendar.date(byAdding: .month, value: months, to: start)!
-        return MonthRange(start: start, end: end, months: months)
+    /// [start 月初, end 次月月初); 调用方保证 start <= end.
+    static func range(start: YearMonth, end: YearMonth, calendar: Calendar) -> MonthRange {
+        let months = end.index - start.index + 1
+        let first = calendar.date(from: DateComponents(year: start.year, month: start.month, day: 1))!
+        return MonthRange(start: first, end: calendar.date(byAdding: .month, value: months, to: first)!, months: months)
     }
 
     /// 网格 [start, end): 整周对齐.

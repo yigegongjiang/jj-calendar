@@ -121,9 +121,9 @@ final class WeekGridView: NSView {
     override func draw(_: NSRect) {
         NSColor.windowBackgroundColor.setFill()
         bounds.fill()
-        NSColor.labelColor.withAlphaComponent(0.6).setFill()
+        NSColor.tertiaryLabelColor.setFill()
         for header in headers.dropFirst() {
-            NSRect(x: header.frame.minX - 1, y: 0, width: 2, height: bounds.height).fill()
+            NSRect(x: header.frame.minX - 1, y: 0, width: 1, height: bounds.height).fill()
         }
     }
 }
