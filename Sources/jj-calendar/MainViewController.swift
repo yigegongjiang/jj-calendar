@@ -8,9 +8,11 @@ final class MainViewController: NSViewController {
     private let startYearPopup = SettablePopUpButton()
     private let startMonthPopup = SettablePopUpButton()
     private let durationPopup = SettablePopUpButton()
-    private let calendarsButton = NSButton(title: "日历", target: nil, action: nil)
-    private let filterController = CalendarFilterController()
-    private lazy var filterPopover: NSPopover = {
+    let calendarsButton = NSButton(title: "日历", target: nil, action: nil)
+    /// 任一页签只显示中才出现: 一键还原.
+    let soloRestoreButton = NSButton(title: "", target: nil, action: nil)
+    let filterController = CalendarFilterController()
+    lazy var filterPopover: NSPopover = {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.contentViewController = filterController
@@ -45,9 +47,8 @@ final class MainViewController: NSViewController {
     private var months = 3
     /// 上次同步时的本月; 跨月时起始月仍为旧本月 -> 跟随到新本月.
     private var currentMonth = YearMonth(year: 2000, month: 1)
-    private var hiddenCalendarIDs: Set<String>
-    private var ignoredCalendarIDs: Set<String>
-    private var snapshot: CalendarSnapshot?
+    var selection = FilterSelection.saved
+    private(set) var snapshot: CalendarSnapshot?
     private var generation = 0
     private var reloadTask: Task<Void, Never>?
     /// 下一个提醒到点变逾期时重排 (跨天另由 NSCalendarDayChanged 处理).
@@ -55,8 +56,6 @@ final class MainViewController: NSViewController {
     private let observers = ObserverTokens()
 
     init() {
-        hiddenCalendarIDs = Set(ConfigStore.state.hiddenCalendarIDs)
-        ignoredCalendarIDs = Set(ConfigStore.state.ignoredCalendarIDs)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -72,11 +71,12 @@ final class MainViewController: NSViewController {
 
         let toolbar = NSStackView(views: [
             startYearPopup, startMonthPopup, durationPopup,
-            calendarsButton, accessButton, summaryLabel
+            calendarsButton, soloRestoreButton, accessButton, summaryLabel
         ])
         toolbar.spacing = 4
         toolbar.setCustomSpacing(12, after: durationPopup)
         toolbar.setCustomSpacing(12, after: calendarsButton)
+        toolbar.setCustomSpacing(12, after: soloRestoreButton)
         toolbar.setCustomSpacing(12, after: accessButton)
         toolbar.edgeInsets = NSEdgeInsets(top: 2, left: 4, bottom: 2, right: 4)
         toolbar.setHuggingPriority(.defaultHigh, for: .vertical)
@@ -133,14 +133,7 @@ final class MainViewController: NSViewController {
             popup.controlSize = .small
             popup.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         }
-        calendarsButton.setAccessibilityIdentifier("calendarsButton")
-        calendarsButton.target = self
-        calendarsButton.action = #selector(showCalendarFilter)
-        filterController.onChange = { [weak self] hidden, ignored in
-            self?.hiddenCalendarIDs = hidden
-            self?.ignoredCalendarIDs = ignored
-            self?.persistHidden()
-        }
+        configureFilterControls()
         rowSpanControl.setAccessibilityIdentifier("rowSpanControl")
         rowSpanControl.target = self
         rowSpanControl.action = #selector(rowSpanChanged)
@@ -160,7 +153,7 @@ final class MainViewController: NSViewController {
         accessButton.target = self
         accessButton.action = #selector(openPrivacySettings)
         accessButton.isHidden = true
-        for button in [calendarsButton, accessButton] {
+        for button in [calendarsButton, soloRestoreButton, accessButton] {
             button.controlSize = .small
             button.bezelStyle = .push
             button.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
@@ -243,16 +236,16 @@ final class MainViewController: NSViewController {
             })
     }
 
-    private func relayout() {
+    func relayout() {
         guard let snapshot else { return }
         let range = range
         let now = Date()
         let disabled = FilterSource.disabled
         let items = (snapshot.events + snapshot.reminders).compactMap { event -> CalendarEvent? in
-            guard !hiddenCalendarIDs.contains(event.calendarID),
+            guard !selection.hidden.contains(event.calendarID),
                   !disabled.contains(FilterSource(isReminder: event.isReminder)) else { return nil }
             var event = event
-            event.isIgnored = ignoredCalendarIDs.contains(event.calendarID)
+            event.isIgnored = selection.ignored.contains(event.calendarID)
             event.isOverdue = event.overdue(at: now)
             return event
         }
@@ -356,37 +349,6 @@ extension MainViewController {
         let typography = Typography(fontSize: size)
         gridView.typography = typography
         ConfigStore.updateConfig { $0.fontSize = Double(typography.fontSize) }
-    }
-}
-
-// MARK: - Calendars filter
-
-extension MainViewController {
-    private func rebuildCalendarsMenu(_ calendars: [CalendarSummary]) {
-        filterController.update(calendars: calendars, hidden: hiddenCalendarIDs, ignored: ignoredCalendarIDs)
-        calendarsButton.title = FilterSource.buttonTitle(calendars, hiddenCalendarIDs, ignoredCalendarIDs)
-    }
-
-    /// 再次点击关闭: App 在后台时 transient popover 不会因外部点击关闭.
-    @objc
-    private func showCalendarFilter() {
-        if filterPopover.isShown {
-            filterPopover.performClose(nil)
-        } else {
-            filterController.fit(to: calendarsButton)
-            filterPopover.show(relativeTo: calendarsButton.bounds, of: calendarsButton, preferredEdge: .maxY)
-        }
-    }
-
-    private func persistHidden() {
-        ConfigStore.update { [hiddenCalendarIDs, ignoredCalendarIDs] in
-            $0.hiddenCalendarIDs = hiddenCalendarIDs.sorted()
-            $0.ignoredCalendarIDs = ignoredCalendarIDs.sorted()
-        }
-        if let snapshot {
-            rebuildCalendarsMenu(snapshot.calendars)
-        }
-        relayout()
     }
 }
 

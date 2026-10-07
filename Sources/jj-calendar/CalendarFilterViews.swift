@@ -4,45 +4,6 @@ enum FilterAction {
     case toggle, solo, ignore, show, hide
 }
 
-/// 筛选面板的数据源页签: 日历 / 提醒事项分开控制.
-enum FilterSource: Int, CaseIterable {
-    case calendars, reminders
-
-    var title: String {
-        self == .calendars ? "日历" : "提醒事项"
-    }
-
-    var shortTitle: String {
-        self == .calendars ? "日历" : "提醒"
-    }
-
-    /// 整源开关: 关闭的源主界面不显示, 各列表勾选状态不变.
-    @MainActor static var disabled: Set<FilterSource> {
-        Set(ConfigStore.state.disabledSources.compactMap(FilterSource.init(rawValue:)))
-    }
-
-    init(isReminder: Bool) {
-        self = isReminder ? .reminders : .calendars
-    }
-
-    func contains(_ summary: CalendarSummary) -> Bool {
-        summary.isReminderList == (self == .reminders)
-    }
-
-    /// 工具栏按钮标题: 关闭的源标「关」; 隐藏数只计开启源中未忽略的列表 (常态忽略不应常驻提示).
-    @MainActor
-    static func buttonTitle(_ calendars: [CalendarSummary], _ hidden: Set<String>, _ ignored: Set<String>) -> String {
-        let off = disabled
-        let names = allCases.map { off.contains($0) ? "\($0.shortTitle) 关" : $0.shortTitle }
-            .joined(separator: " · ")
-        let count = calendars.count {
-            !off.contains(FilterSource(isReminder: $0.isReminderList)) && hidden.contains($0.id)
-                && !ignored.contains($0.id)
-        }
-        return count == 0 ? "\(names) ▾" : "\(names) (隐藏 \(count)) ▾"
-    }
-}
-
 final class FilterItem: NSObject {
     let summary: CalendarSummary
     let isIgnored: Bool
@@ -88,7 +49,7 @@ final class FilterGroup: NSObject {
                                items: items($0.value, ignored: false)) }
         let rest = matches.filter { ignored.contains($0.id) }
         if !rest.isEmpty {
-            let title = "已忽略 · 不参与全部显示"
+            let title = "已忽略"
             groups.append(FilterGroup(key: "\(source):ignored", title: title, items: items(rest, ignored: true)))
         }
         return groups
@@ -112,6 +73,9 @@ final class FilterCell: NSTableCellView {
     private let countLabel = NSTextField(labelWithString: "")
     private let soloButton = FilterCell.pushButton("只显示", target: nil, action: nil)
     private let ignoreButton = FilterCell.pushButton("忽略", target: nil, action: nil)
+    private var isRevealed = false
+    /// 当前只显示的对象: 「还原」常驻.
+    private var isSoloTarget = false
 
     init(_ kind: Kind) {
         self.kind = kind
@@ -166,13 +130,10 @@ final class FilterCell: NSTableCellView {
         checkbox.setAccessibilityIdentifier(summary.id)
         checkbox.setAccessibilityLabel(summary.title)
         checkbox.toolTip = "\(summary.title)\n⌥ 点击: 只显示此项"
-        soloButton.title = isSolo ? "还原" : "只显示"
-        soloButton.toolTip = isSolo ? "还原到只显示前的状态" : "只显示此项 (同页签内)"
-        soloButton.setAccessibilityLabel("\(soloButton.title) \(summary.title)")
-        soloButton.setAccessibilityIdentifier("only:" + summary.id)
+        setSolo(isSolo, name: summary.title, key: summary.id)
         ignoreButton.setAccessibilityIdentifier("ignore:" + summary.id)
         ignoreButton.title = isIgnored ? "取消忽略" : "忽略"
-        ignoreButton.toolTip = isIgnored ? "移回所属账户并显示" : "移到「已忽略」: 立即隐藏, 不参与全部显示; 手动勾选才显示 (淡化)"
+        ignoreButton.toolTip = isIgnored ? "移回所属账户并显示" : "移到「已忽略」: 立即隐藏并置底; 手动勾选才显示 (淡化)"
         ignoreButton.setAccessibilityLabel("\(ignoreButton.title) \(summary.title)")
     }
 
@@ -184,16 +145,28 @@ final class FilterCell: NSTableCellView {
         checkbox.setAccessibilityLabel(group.title)
         checkbox.toolTip = "整组显示 / 隐藏\n⌥ 点击: 只显示本组"
         countLabel.stringValue = "\(shown)/\(group.ids.count)"
+        setSolo(isSolo, name: group.title, key: group.soloKey)
+    }
+
+    /// 只显示对象: 强调色「还原」常驻; 其余行悬停才出现「只显示」.
+    private func setSolo(_ isSolo: Bool, name: String, key: String) {
+        isSoloTarget = isSolo
         soloButton.title = isSolo ? "还原" : "只显示"
-        soloButton.setAccessibilityLabel("\(soloButton.title) \(group.title)")
-        soloButton.setAccessibilityIdentifier("only:" + group.soloKey)
+        soloButton.image = isSolo ? Self.restoreIcon : nil
+        soloButton.imagePosition = .imageLeading
+        soloButton.bezelColor = isSolo ? .controlAccentColor : nil
+        soloButton.toolTip = isSolo ? "还原到只显示前的状态" : "只显示\(name) (当前页签内; 可随时还原)"
+        soloButton.setAccessibilityLabel("\(soloButton.title) \(name)")
+        soloButton.setAccessibilityIdentifier("only:" + key)
+        setRevealed(isRevealed)
     }
 
     /// 悬停 / 键盘选中时显示操作按钮, 分组行同时让出计数位置.
     func setRevealed(_ revealed: Bool) {
-        soloButton.alphaValue = revealed ? 1 : 0
+        isRevealed = revealed
+        soloButton.alphaValue = revealed || isSoloTarget ? 1 : 0
         ignoreButton.alphaValue = revealed ? 1 : 0
-        countLabel.alphaValue = revealed ? 0 : 1
+        countLabel.alphaValue = revealed || isSoloTarget ? 0 : 1
     }
 
     @objc
@@ -210,6 +183,8 @@ final class FilterCell: NSTableCellView {
     private func ignorePressed() {
         onAction?(.ignore)
     }
+
+    static let restoreIcon = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: "还原")
 
     static func pushButton(_ title: String, target: AnyObject?, action: Selector?) -> NSButton {
         let button = NSButton(title: title, target: target, action: action)
@@ -332,5 +307,81 @@ final class FilterOutlineView: NSOutlineView {
         default:
             super.keyDown(with: event)
         }
+    }
+}
+
+/// 只显示中的横幅: 强调色底 + 对象 + 「还原」/「保留当前」.
+final class SoloBanner: NSView {
+    var onRestore: (() -> Void)?
+    var onKeep: (() -> Void)?
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let detailLabel = NSTextField(labelWithString: "")
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 7
+        setAccessibilityElement(true)
+        setAccessibilityRole(.group)
+        setAccessibilityIdentifier("soloBanner")
+        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        titleLabel.lineBreakMode = .byTruncatingMiddle
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        detailLabel.font = .systemFont(ofSize: 11)
+        detailLabel.textColor = .secondaryLabelColor
+        let restore = FilterCell.pushButton("还原", target: self, action: #selector(restorePressed))
+        restore.image = FilterCell.restoreIcon
+        restore.imagePosition = .imageLeading
+        restore.bezelColor = .controlAccentColor
+        restore.toolTip = "回到只显示前的状态"
+        restore.setAccessibilityIdentifier("soloRestore")
+        let keep = FilterCell.pushButton("保留当前", target: self, action: #selector(keepPressed))
+        keep.toolTip = "保持现在的显示, 不再提示还原"
+        keep.setAccessibilityIdentifier("soloKeep")
+        let texts = NSStackView(views: [titleLabel, detailLabel])
+        texts.orientation = .vertical
+        texts.alignment = .leading
+        texts.spacing = 1
+        texts.setHuggingPriority(.init(1), for: .horizontal)
+        let row = NSStackView(views: [texts, keep, restore])
+        row.spacing = 6
+        row.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 8)
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        NSLayoutConstraint.activate([
+            row.topAnchor.constraint(equalTo: topAnchor),
+            row.bottomAnchor.constraint(equalTo: bottomAnchor),
+            row.leadingAnchor.constraint(equalTo: leadingAnchor),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func show(title: String, detail: String) {
+        titleLabel.stringValue = title
+        detailLabel.stringValue = detail
+        setAccessibilityLabel("\(title), \(detail)")
+    }
+
+    override func updateLayer() {
+        layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.22).cgColor
+    }
+
+    override var wantsUpdateLayer: Bool {
+        true
+    }
+
+    @objc
+    private func restorePressed() {
+        onRestore?()
+    }
+
+    @objc
+    private func keepPressed() {
+        onKeep?()
     }
 }

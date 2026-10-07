@@ -19,6 +19,8 @@ struct AppState: Codable, Equatable {
     var filterTab = 0
     /// 整源关闭的 FilterSource.rawValue: 主界面不显示该源, 各列表勾选不变.
     var disabledSources: [Int] = []
+    /// 各页签「只显示」还原点.
+    var solos: [SoloRecord] = []
     var collapsedCalendarGroups: [String] = ["calendars:ignored", "reminders:ignored"]
     var window: WindowFrame?
 }

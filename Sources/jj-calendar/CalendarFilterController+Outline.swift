@@ -77,12 +77,12 @@ extension CalendarFilterController: NSSearchFieldDelegate, NSMenuDelegate {
         if let item = node as? FilterItem {
             let id = item.summary.id
             entries = [
-                (isSolo(key: id, ids: [id]) ? "还原" : "只显示「\(item.summary.title)」", .solo),
-                (item.isIgnored ? "取消忽略" : "忽略 (不参与全部显示)", .ignore)
+                (isSoloTarget(id) ? "还原" : "只显示「\(item.summary.title)」", .solo),
+                (item.isIgnored ? "取消忽略" : "忽略 (隐藏并移到底部)", .ignore)
             ]
         } else if let group = node as? FilterGroup {
             entries = [
-                (isSolo(key: group.soloKey, ids: Set(group.ids)) ? "还原" : "只显示本组", .solo),
+                (isSoloTarget(group.soloKey) ? "还原" : "只显示本组", .solo),
                 ("显示本组全部", .show),
                 ("隐藏本组全部", .hide)
             ]

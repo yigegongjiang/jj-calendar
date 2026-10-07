@@ -1,25 +1,22 @@
 import AppKit
 
 /// 日历筛选面板 (popover): 页签 (日历 / 提醒事项) + 搜索 + 分组大纲; 整行点击切换显示, 面板不关闭; 超出可用高度滚动.
-/// - 两个页签分开控制: 全部显示 / 全部隐藏 / 只显示 只作用于当前页签.
+/// - 核心操作「只显示」: 悬停行 / ⌥ 点击 / ⌥ 空格 / 右键; 只作用于当前页签; 还原点持久化 (重启后可还原).
+///   只显示期间: 页签顶部横幅 (还原 / 保留当前) + 该行常驻「还原」+ 主界面工具栏还原按钮.
 /// - 每个页签有整源开关: 关闭 = 主界面不显示该源, 列表勾选保持, 重新打开即恢复.
-/// - 分组: 按账户, 「已忽略」置底默认折叠; 页签 + 折叠状态持久化.
-/// - 分组复选框 = 整组显示 / 隐藏; 悬停 / 选中行显示「只显示」「忽略」; 同项再点「还原」回到只显示前.
-/// - ⌥ 点击 / ⌥ 空格 = 只显示; 空格 / 回车 = 切换; 搜索框 ↓ 进入列表, 列表首行 ↑ 回搜索框.
-/// - 已忽略: 忽略即隐藏, 不参与全部显示, 手动勾选才显示 (事件淡化); 取消忽略即显示.
+/// - 分组: 按账户, 「已忽略」置底默认折叠; 页签 + 折叠状态持久化; 分组复选框 = 整组显示 / 隐藏.
+/// - 空格 / 回车 = 切换; 搜索框 ↓ 进入列表, 列表首行 ↑ 回搜索框.
+/// - 已忽略: 忽略即隐藏并移到底部, 手动勾选才显示 (事件淡化); 取消忽略即显示.
 final class CalendarFilterController: NSViewController {
-    var onChange: ((_ hidden: Set<String>, _ ignored: Set<String>) -> Void)?
+    var onChange: ((FilterSelection) -> Void)?
     /// 面板可用高度; 打开前由 fit(to:) 按锚点位置设置.
     private var maxHeight: CGFloat = 600
 
     private var calendars: [CalendarSummary] = []
-    private var hidden: Set<String> = []
-    private var ignored: Set<String> = []
+    private(set) var selection = FilterSelection.saved
     private(set) var groups: [FilterGroup] = []
     private var source = FilterSource(rawValue: ConfigStore.state.filterTab) ?? .calendars
     private var collapsed = Set(ConfigStore.state.collapsedCalendarGroups)
-    /// 最近一次「只显示」: 同一项再点还原.
-    private var solo: (key: String, restore: Set<String>)?
     /// reload 时程序化展开不写入折叠状态.
     private var isReloading = false
     private let tabs = NSSegmentedControl(
@@ -28,11 +25,12 @@ final class CalendarFilterController: NSViewController {
     private let sourceLabel = NSTextField(labelWithString: "")
     private let sourceSwitch = NSSwitch()
     private let searchField = NSSearchField()
+    private let banner = SoloBanner()
+    private let top = NSStackView()
     private let emptyLabel = NSTextField(labelWithString: "")
     let outline = FilterOutlineView()
     private let scrollView = NSScrollView()
     private static let width: CGFloat = 360
-    private static let headerHeight: CGFloat = 108
 
     private var query: String {
         searchField.stringValue.trimmingCharacters(in: .whitespaces)
@@ -40,16 +38,14 @@ final class CalendarFilterController: NSViewController {
 
     /// 当前页签的全部 id.
     private var scopeIDs: Set<String> {
+        scopeIDs(source)
+    }
+
+    private func scopeIDs(_ source: FilterSource) -> Set<String> {
         Set(calendars.lazy.filter(source.contains).map(\.id))
     }
 
     override func loadView() {
-        let showAll = FilterCell.pushButton("全部显示", target: self, action: #selector(showAll))
-        let hideAll = FilterCell.pushButton("全部隐藏", target: self, action: #selector(hideAll))
-        showAll.setAccessibilityIdentifier("calendarsShowAll")
-        hideAll.setAccessibilityIdentifier("calendarsHideAll")
-        showAll.toolTip = "显示当前页签全部未忽略的列表"
-        hideAll.toolTip = "隐藏当前页签全部列表"
         tabs.target = self
         tabs.action = #selector(tabChanged)
         tabs.segmentDistribution = .fillEqually
@@ -60,14 +56,14 @@ final class CalendarFilterController: NSViewController {
         searchField.placeholderString = "搜索日历 / 提醒事项"
         searchField.delegate = self
         searchField.setAccessibilityIdentifier("calendarsSearch")
-        let bar = NSStackView(views: [searchField, showAll, hideAll])
-        bar.spacing = 6
-        let toggleRow = sourceRow()
-        let top = NSStackView(views: [tabs, toggleRow, bar])
+        banner.onRestore = { [weak self] in self?.restore() }
+        banner.onKeep = { [weak self] in self?.keep() }
+        for view in [tabs, banner, sourceRow(), searchField] {
+            top.addArrangedSubview(view)
+        }
         top.orientation = .vertical
         top.alignment = .width
         top.spacing = 8
-        searchField.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         configureOutline()
         scrollView.documentView = outline
@@ -85,7 +81,7 @@ final class CalendarFilterController: NSViewController {
             top.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
             top.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
             tabs.widthAnchor.constraint(equalTo: top.widthAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor, constant: Self.headerHeight),
+            scrollView.topAnchor.constraint(equalTo: top.bottomAnchor, constant: 8),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -6),
@@ -164,12 +160,11 @@ final class CalendarFilterController: NSViewController {
     }
 
     /// 数据刷新 (iCloud 同步等) 时可能正打开: 结构未变只刷新行状态, 保持搜索 / 折叠 / 滚动位置.
-    func update(calendars: [CalendarSummary], hidden: Set<String>, ignored: Set<String>) {
+    func update(calendars: [CalendarSummary], selection: FilterSelection) {
         _ = view
-        let structural = calendars != self.calendars || ignored != self.ignored
+        let structural = calendars != self.calendars || selection.ignored != self.selection.ignored
         self.calendars = calendars
-        self.hidden = hidden
-        self.ignored = ignored
+        self.selection = selection
         if structural {
             reload()
         } else {
@@ -178,7 +173,7 @@ final class CalendarFilterController: NSViewController {
     }
 
     func reload() {
-        groups = FilterGroup.make(calendars, source: source, ignored: ignored, query: query)
+        groups = FilterGroup.make(calendars, source: source, ignored: selection.ignored, query: query)
         emptyLabel.stringValue = !query.isEmpty ? "无匹配" : source == .reminders ? "无提醒事项列表 (未授权?)" : "无日历"
         emptyLabel.isHidden = !groups.isEmpty
         isReloading = true
@@ -210,10 +205,10 @@ final class CalendarFilterController: NSViewController {
         }
         ConfigStore.update { $0.disabledSources = disabled.map(\.rawValue).sorted() }
         updateTabs()
-        onChange?(hidden, ignored)
+        onChange?(selection)
     }
 
-    /// 页签标题带显示数: 「日历 3/5」(不计已忽略); 整源关闭: 「日历 · 关」.
+    /// 页签标题: 「日历 3/5」(不计已忽略); 只显示中加「· 只显示」; 整源关闭: 「日历 · 关」. 同步横幅.
     private func updateTabs() {
         updateSourceSwitch()
         let disabled = FilterSource.disabled
@@ -222,10 +217,12 @@ final class CalendarFilterController: NSViewController {
                 tabs.setLabel("\(source.title) · 关", forSegment: source.rawValue)
                 continue
             }
-            let active = calendars.filter { source.contains($0) && !ignored.contains($0.id) }
-            let shown = active.count { !hidden.contains($0.id) }
-            tabs.setLabel("\(source.title)  \(shown)/\(active.count)", forSegment: source.rawValue)
+            let active = calendars.filter { source.contains($0) && !selection.ignored.contains($0.id) }
+            let shown = active.count { !selection.hidden.contains($0.id) }
+            let solo = selection.solo(source) == nil ? "" : " · 只显示"
+            tabs.setLabel("\(source.title)  \(shown)/\(active.count)\(solo)", forSegment: source.rawValue)
         }
+        updateBanner()
     }
 
     @objc
@@ -253,26 +250,28 @@ final class CalendarFilterController: NSViewController {
         let rows = (0..<outline.numberOfRows).reduce(0) { total, row in
             total + Self.rowHeight(outline.item(atRow: row)) + outline.intercellSpacing.height
         }
-        let height = Self.headerHeight + max(rows, 60) + 8
+        let header = 10 + top.fittingSize.height + 8
+        let height = header + max(rows, 60) + 8
         preferredContentSize = NSSize(width: Self.width, height: min(height, max(maxHeight, 240)))
     }
 
     func configure(_ cell: FilterCell, for node: Any) {
         if let item = node as? FilterItem {
             let id = item.summary.id
-            let isSolo = isSolo(key: id, ids: [id])
-            cell.showItem(item.summary, isOn: !hidden.contains(id), isIgnored: item.isIgnored, isSolo: isSolo)
+            let isOn = !selection.hidden.contains(id)
+            cell.showItem(item.summary, isOn: isOn, isIgnored: item.isIgnored, isSolo: isSoloTarget(id))
         } else if let group = node as? FilterGroup {
-            let shown = group.ids.count { !hidden.contains($0) }
-            cell.showGroup(group, shown: shown, isSolo: isSolo(key: group.soloKey, ids: Set(group.ids)))
+            let shown = group.ids.count { !selection.hidden.contains($0) }
+            cell.showGroup(group, shown: shown, isSolo: isSoloTarget(group.soloKey))
         }
         cell.onAction = { [weak self] action in
             self?.perform(action, on: node)
         }
     }
 
-    func isSolo(key: String, ids: Set<String>) -> Bool {
-        solo?.key == key && scopeIDs.subtracting(hidden) == ids
+    /// 当前页签只显示的对象: 该行常驻「还原」.
+    func isSoloTarget(_ key: String) -> Bool {
+        selection.solo(source)?.key == key
     }
 
     func persistCollapsed(_ notification: Notification, collapsed isCollapsed: Bool) {
@@ -303,9 +302,11 @@ extension CalendarFilterController {
     private func perform(_ action: FilterAction, on item: FilterItem) {
         let id = item.summary.id
         switch action {
-        case .toggle: hidden.formSymmetricDifference([id])
-        case .solo: showOnly(key: id, ids: [id])
-        case .ignore: toggleIgnored(id)
+        case .toggle: selection.hidden.formSymmetricDifference([id])
+        case .solo: selection.showOnly([id], key: id, title: item.summary.title, in: source, scope: scopeIDs)
+        case .ignore:
+            selection.toggleIgnored(id)
+            reload()
         case .show, .hide: break
         }
     }
@@ -313,55 +314,41 @@ extension CalendarFilterController {
     private func perform(_ action: FilterAction, on group: FilterGroup) {
         let ids = Set(group.ids)
         switch action {
-        case .toggle: setVisible(ids, !hidden.isDisjoint(with: ids))
-        case .show: setVisible(ids, true)
-        case .hide: setVisible(ids, false)
-        case .solo: showOnly(key: group.soloKey, ids: ids)
+        case .toggle: selection.setVisible(ids, !selection.hidden.isDisjoint(with: ids))
+        case .show: selection.setVisible(ids, true)
+        case .hide: selection.setVisible(ids, false)
+        case .solo: selection.showOnly(ids, key: group.soloKey, title: group.title, in: source, scope: scopeIDs)
         case .ignore: break
         }
     }
 
-    private func setVisible(_ ids: Set<String>, _ visible: Bool) {
-        if visible {
-            hidden.subtract(ids)
-        } else {
-            hidden.formUnion(ids)
+    /// 横幅: 只显示的对象 + 还原后恢复几项.
+    private func updateBanner() {
+        guard let solo = selection.solo(source) else {
+            banner.isHidden = true
+            return
         }
+        let restored = scopeIDs.subtracting(solo.restore).subtracting(selection.ignored).count
+        banner.show(title: "只显示「\(solo.title)」", detail: "还原后恢复显示 \(restored) 项")
+        banner.isHidden = false
     }
 
-    /// 当前页签内只显示 ids (另一页签不变); 已处于该状态 -> 还原到只显示前.
-    private func showOnly(key: String, ids: Set<String>) {
-        if let solo, isSolo(key: key, ids: ids) {
-            // 只还原当前页签: 期间另一页签的改动保留.
-            hidden = hidden.subtracting(scopeIDs).union(solo.restore.intersection(scopeIDs))
-            self.solo = nil
-        } else {
-            solo = (key, hidden)
-            hidden = hidden.subtracting(scopeIDs).union(scopeIDs.subtracting(ids))
-        }
-    }
-
-    /// 忽略即隐藏; 取消忽略即显示.
-    private func toggleIgnored(_ id: String) {
-        if ignored.remove(id) == nil {
-            ignored.insert(id)
-            hidden.insert(id)
-        } else {
-            hidden.remove(id)
-        }
-        reload()
-    }
-
-    /// 当前页签: 只勾选未忽略的; 已忽略的保持原状态.
-    @objc
-    private func showAll() {
-        hidden.subtract(scopeIDs.subtracting(ignored))
+    /// 还原当前页签.
+    private func restore() {
+        selection.restore(source, scope: scopeIDs)
         commit()
     }
 
-    @objc
-    private func hideAll() {
-        hidden.formUnion(scopeIDs)
+    /// 还原所有页签 (工具栏按钮).
+    func restoreAll() {
+        for source in FilterSource.allCases {
+            selection.restore(source, scope: scopeIDs(source))
+        }
+        commit()
+    }
+
+    private func keep() {
+        selection.keep(source)
         commit()
     }
 
@@ -383,6 +370,7 @@ extension CalendarFilterController {
 
     private func commit() {
         refreshRows()
-        onChange?(hidden, ignored)
+        updateSize()
+        onChange?(selection)
     }
 }
