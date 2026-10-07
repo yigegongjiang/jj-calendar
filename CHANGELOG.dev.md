@@ -7,6 +7,16 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.6.1] - 2026-10-07
+
+### Fixed
+
+- 筛选面板「只显示」改为每行常驻, 所有行在右侧同一列对齐, 不再随标题长度左右漂移; 悬停时加边框
+  - 根因: 条目复选框 hugging 高于单元格宽度约束, 单元格按内容收缩; 复选框 hugging 降为 1; `soloButton` 固定宽 66
+  - `setRevealed`: 平时无边框淡色文字, 悬停 / 选中 `isBordered`; 分组计数移到「只显示」左侧常驻
+- 「忽略」移到「只显示」左侧, 仍是悬停才出现
+  - actions 顺序 `[ignoreButton, soloButton]`, `ignoreButton` 固定宽 70
+
 ## [0.6.0] - 2026-10-07
 
 ### Changed
