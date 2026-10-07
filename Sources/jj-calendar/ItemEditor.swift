@@ -46,6 +46,7 @@ final class ItemEditorController: NSViewController {
     /// 日程时长: 改开始时结束随之平移.
     private var duration: TimeInterval = 3600
     private var confirmingDelete = false
+    private let stack = NSStackView()
 
     override func loadView() {
         configureControls()
@@ -56,17 +57,29 @@ final class ItemEditorController: NSViewController {
         buttons.spacing = 6
         let startControls = NSStackView(views: [startPicker, allDayCheck])
         startControls.spacing = 8
-        let stack = NSStackView(views: [
+        stack.setViews([
             kindControl, row("标题", titleField), row(calendarLabel, calendarPopup), row(startLabel, startControls),
             endRow, completedRow, noteLabel, buttons
-        ])
+        ], in: .leading)
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
-        buttons.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -20).isActive = true
-        stack.setAccessibilityIdentifier("itemEditor")
-        view = stack
+        buttons.widthAnchor.constraint(equalToConstant: Self.labelWidth + 6 + Self.fieldWidth).isActive = true
+        // leading 对齐时 stack 不保证右侧 inset: 显式定宽.
+        stack.widthAnchor.constraint(equalToConstant: Self.labelWidth + 6 + Self.fieldWidth + 20).isActive = true
+        // 容器 + 四边约束: fittingSize 即内容尺寸 (popover 按它定大小).
+        let container = NSView()
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: container.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        container.setAccessibilityIdentifier("itemEditor")
+        view = container
     }
 
     private func row(_ title: String, _ control: NSView) -> NSStackView {
@@ -110,6 +123,13 @@ final class ItemEditorController: NSViewController {
         }
         showNote(nil)
         applyKind(selecting: item?.calendarID)
+        fitSize()
+    }
+
+    /// 字段显隐变化后按内容定尺寸.
+    private func fitSize() {
+        // 取 stack 而非根视图: 根视图在 popover 窗口内带 frame 约束, fittingSize 恒为当前尺寸.
+        preferredContentSize = stack.fittingSize
     }
 
     override func viewDidAppear() {
@@ -243,6 +263,7 @@ extension ItemEditorController {
         applyDefaultDates(on: startPicker.dateValue)
         showNote(nil)
         applyKind(selecting: nil)
+        fitSize()
     }
 
     @objc
@@ -347,5 +368,8 @@ extension ItemEditorController {
         noteLabel.stringValue = text ?? ""
         noteLabel.textColor = error ? .systemRed : .secondaryLabelColor
         noteLabel.isHidden = text == nil
+        if request != nil {
+            fitSize()
+        }
     }
 }
