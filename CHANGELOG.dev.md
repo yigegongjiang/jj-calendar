@@ -7,6 +7,19 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.6.0] - 2026-10-07
+
+### Changed
+
+- 「只显示」成为筛选面板的核心操作; 移除「全部显示 / 全部隐藏」
+  - 删除 `showAll` / `hideAll`; 筛选状态收敛为 `FilterSelection` (hidden / ignored / solos), 面板与主界面共享
+- 只显示中: 页签顶部横幅显示对象和「还原 / 保留当前」, 该行常驻「还原」, 页签标「只显示」
+  - `SoloBanner` (AX `soloBanner` / `soloRestore` / `soloKeep`); `FilterCell.setSolo` 强调色常驻; 面板高度按 `top.fittingSize` 动态
+- 主界面工具栏新增「还原」按钮 (只显示中才出现), 筛选按钮标出只显示的对象 (如「日历「个人」」)
+  - `soloRestoreButton` -> `restoreAll()`; 筛选相关移到 `MainViewController+Filter.swift`; `FilterSource.buttonTitle(_:_:)`
+- 还原点重启后保留; 连续只显示多个对象时, 还原回到第一次只显示之前
+  - `AppState.solos: [SoloRecord]` (每页签一个, restore = 该页签只显示前的隐藏集); 数据未载入时不还原, 保留记录
+
 ## [0.5.3] - 2026-10-07
 
 ### Added
