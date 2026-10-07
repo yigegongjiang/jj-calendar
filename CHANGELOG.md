@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.6.2] - 2026-10-07
+
+### Added
+
+- 菜单新增「Settings…」(⌘,): 在 Finder 中打开配置文件夹
+
 ## [0.6.1] - 2026-10-07
 
 ### Fixed

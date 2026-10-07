@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.6.2] - 2026-10-07
+
+### Added
+
+- 菜单新增「Settings…」(⌘,): 在 Finder 中打开配置文件夹
+  - `AppDelegate.openConfigFolder`: `NSWorkspace.open(ConfigStore.directory)`; Debug 实例 `activates = false`
+
 ## [0.6.1] - 2026-10-07
 
 ### Fixed
