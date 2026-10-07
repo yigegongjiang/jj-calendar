@@ -11,6 +11,16 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.7.2] - 2026-10-07
+
+### Changed
+
+- 新建 / 编辑时的日历 / 列表候选只显示筛选中正在显示的那些, 已隐藏 / 忽略的不再出现
+
+### Fixed
+
+- 标题栏「新建」弹窗改为向下展开, 不再弹到窗口外
+
 ## [0.7.1] - 2026-10-07
 
 ### Added

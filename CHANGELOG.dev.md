@@ -7,6 +7,18 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.7.2] - 2026-10-07
+
+### Changed
+
+- 新建 / 编辑时的日历 / 列表候选只显示筛选中正在显示的那些, 已隐藏 / 忽略的不再出现
+  - `presentEditor`: 候选 = 可写 && (条目自身所属 || 未隐藏 && 未忽略 && 整源开启); README 加截图 `docs/screenshots/`
+
+### Fixed
+
+- 标题栏「新建」弹窗改为向下展开, 不再弹到窗口外
+  - NSButton 为 flipped 坐标: 下边 = `.maxY`; 按 `view.isFlipped` 取边
+
 ## [0.7.1] - 2026-10-07
 
 ### Added
