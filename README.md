@@ -10,6 +10,13 @@
 
 macOS 日历 + 提醒事项查看器 + 快速录入 / 微调.
 
+## 截图
+
+<!-- prettier-ignore -->
+| 主界面 | 当日列表 | 新建 | 编辑 |
+| --- | --- | --- | --- |
+| ![主界面](docs/screenshots/main.png) | ![当日列表](docs/screenshots/day.png) | ![新建](docs/screenshots/new.png) | ![编辑](docs/screenshots/edit.png) |
+
 ## 核心要求 (MUST)
 
 - 写入 = 快速录入 / 微调入口, 只在用户操作时写; 字段仅 类型 / 标题 / 日历 (列表) / 全天 / 时间 / 提醒完成 + 删除; 备注 / 闹钟 / 重复规则 / 地点 / 参与人等 MUST NOT 加 (去系统 App)
