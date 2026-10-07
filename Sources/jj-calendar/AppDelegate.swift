@@ -9,7 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_: Notification) {
         ConfigStore.load()
         let controller = MainViewController()
-        NSApp.mainMenu = makeMainMenu(fontTarget: controller)
+        NSApp.mainMenu = makeMainMenu(controller: controller)
 
         let window = NSWindow(
             contentRect: .zero,
@@ -85,7 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// 无 nib 时系统不生成菜单栏; 最小菜单保证 ⌘Q / ⌘W / ⌘M 可用.
-    private func makeMainMenu(fontTarget: MainViewController) -> NSMenu {
+    private func makeMainMenu(controller: MainViewController) -> NSMenu {
         let appMenu = NSMenu()
         let openConfig = #selector(openConfigFolder(_:))
         let settings = appMenu.addItem(withTitle: "Settings…", action: openConfig, keyEquivalent: ",")
@@ -94,13 +94,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let quit = #selector(NSApplication.terminate(_:))
         appMenu.addItem(withTitle: "Quit \(appName)", action: quit, keyEquivalent: "q")
 
+        let fileMenu = NSMenu(title: "File")
+        let newItem = fileMenu.addItem(
+            withTitle: "新建日程 / 提醒…", action: #selector(MainViewController.newItem(_:)), keyEquivalent: "n"
+        )
+        newItem.target = controller
+
         let windowMenu = NSMenu(title: "Window")
         windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         let minimize = #selector(NSWindow.performMiniaturize(_:))
         windowMenu.addItem(withTitle: "Minimize", action: minimize, keyEquivalent: "m")
         NSApp.windowsMenu = windowMenu
 
-        // 字号: 直接指向 controller, 不依赖 key window 响应链 (后台 AX 调用同样可用).
+        // 新建 / 字号: 直接指向 controller, 不依赖 key window 响应链 (后台 AX 调用同样可用).
         let viewMenu = NSMenu(title: "View")
         let larger = #selector(MainViewController.increaseFontSize(_:))
         let smaller = #selector(MainViewController.decreaseFontSize(_:))
@@ -112,10 +118,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         largerAlias.allowsKeyEquivalentWhenHidden = true
         viewMenu.addItem(withTitle: "缩小字号", action: smaller, keyEquivalent: "-")
         viewMenu.addItem(withTitle: "默认字号", action: reset, keyEquivalent: "0")
-        viewMenu.items.forEach { $0.target = fontTarget }
+        viewMenu.items.forEach { $0.target = controller }
 
         let mainMenu = NSMenu()
-        for submenu in [appMenu, viewMenu, windowMenu] {
+        for submenu in [appMenu, fileMenu, viewMenu, windowMenu] {
             let item = NSMenuItem()
             item.submenu = submenu
             mainMenu.addItem(item)

@@ -18,6 +18,10 @@
 		A00000000000000000000088 /* CalendarFilterViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000089 /* CalendarFilterViews.swift */; };
 		A00000000000000000000090 /* CalendarFilterController+Outline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000091 /* CalendarFilterController+Outline.swift */; };
 		A00000000000000000000092 /* FilterSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000093 /* FilterSelection.swift */; };
+		A00000000000000000000096 /* CalendarStore+Write.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000097 /* CalendarStore+Write.swift */; };
+		A00000000000000000000098 /* ItemEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000099 /* ItemEditor.swift */; };
+		A00000000000000000000100 /* MainViewController+Edit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000101 /* MainViewController+Edit.swift */; };
+		A00000000000000000000102 /* DayDetailController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000103 /* DayDetailController.swift */; };
 		A00000000000000000000094 /* MainViewController+Filter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000095 /* MainViewController+Filter.swift */; };
 		A00000000000000000000086 /* DayViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000087 /* DayViews.swift */; };
 		A00000000000000000000080 /* SettablePopUpButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000081 /* SettablePopUpButton.swift */; };
@@ -41,6 +45,10 @@
 		A00000000000000000000089 /* CalendarFilterViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFilterViews.swift; sourceTree = "<group>"; };
 		A00000000000000000000091 /* CalendarFilterController+Outline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CalendarFilterController+Outline.swift"; sourceTree = "<group>"; };
 		A00000000000000000000093 /* FilterSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterSelection.swift; sourceTree = "<group>"; };
+		A00000000000000000000097 /* CalendarStore+Write.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CalendarStore+Write.swift"; sourceTree = "<group>"; };
+		A00000000000000000000099 /* ItemEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemEditor.swift; sourceTree = "<group>"; };
+		A00000000000000000000101 /* MainViewController+Edit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MainViewController+Edit.swift"; sourceTree = "<group>"; };
+		A00000000000000000000103 /* DayDetailController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailController.swift; sourceTree = "<group>"; };
 		A00000000000000000000095 /* MainViewController+Filter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MainViewController+Filter.swift"; sourceTree = "<group>"; };
 		A00000000000000000000087 /* DayViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayViews.swift; sourceTree = "<group>"; };
 		A00000000000000000000081 /* SettablePopUpButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettablePopUpButton.swift; sourceTree = "<group>"; };
@@ -60,7 +68,7 @@
 		};
 		A00000000000000000000032 /* jj-calendar */ = {
 			isa = PBXGroup;
-			children = (A00000000000000000000011 /* main.swift */, A00000000000000000000012 /* AppDelegate.swift */, A00000000000000000000016 /* MainViewController.swift */, A00000000000000000000085 /* MainViewController+Access.swift */, A00000000000000000000017 /* CalendarStore.swift */, A00000000000000000000023 /* CalendarFilterController.swift */, A00000000000000000000089 /* CalendarFilterViews.swift */, A00000000000000000000091 /* CalendarFilterController+Outline.swift */, A00000000000000000000081 /* SettablePopUpButton.swift */, A00000000000000000000083 /* ConfigStore.swift */, A00000000000000000000018 /* WeekLayout.swift */, A00000000000000000000022 /* WeekGridView.swift */, A00000000000000000000019 /* WeekRowView.swift */, A00000000000000000000087 /* DayViews.swift */, A00000000000000000000095 /* MainViewController+Filter.swift */, A00000000000000000000093 /* FilterSelection.swift */, A00000000000000000000020 /* jj-calendar.entitlements */, A00000000000000000000015 /* Assets.xcassets */);
+			children = (A00000000000000000000011 /* main.swift */, A00000000000000000000012 /* AppDelegate.swift */, A00000000000000000000016 /* MainViewController.swift */, A00000000000000000000085 /* MainViewController+Access.swift */, A00000000000000000000017 /* CalendarStore.swift */, A00000000000000000000023 /* CalendarFilterController.swift */, A00000000000000000000089 /* CalendarFilterViews.swift */, A00000000000000000000091 /* CalendarFilterController+Outline.swift */, A00000000000000000000081 /* SettablePopUpButton.swift */, A00000000000000000000083 /* ConfigStore.swift */, A00000000000000000000018 /* WeekLayout.swift */, A00000000000000000000022 /* WeekGridView.swift */, A00000000000000000000019 /* WeekRowView.swift */, A00000000000000000000087 /* DayViews.swift */, A00000000000000000000103 /* DayDetailController.swift */, A00000000000000000000095 /* MainViewController+Filter.swift */, A00000000000000000000093 /* FilterSelection.swift */, A00000000000000000000097 /* CalendarStore+Write.swift */, A00000000000000000000099 /* ItemEditor.swift */, A00000000000000000000101 /* MainViewController+Edit.swift */, A00000000000000000000020 /* jj-calendar.entitlements */, A00000000000000000000015 /* Assets.xcassets */);
 			path = "Sources/jj-calendar";
 			sourceTree = "<group>";
 		};
@@ -111,7 +119,7 @@
 		A00000000000000000000051 = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (A00000000000000000000001 /* main.swift in Sources */, A00000000000000000000002 /* AppDelegate.swift in Sources */, A00000000000000000000004 /* MainViewController.swift in Sources */, A00000000000000000000084 /* MainViewController+Access.swift in Sources */, A00000000000000000000005 /* CalendarStore.swift in Sources */, A00000000000000000000009 /* CalendarFilterController.swift in Sources */, A00000000000000000000088 /* CalendarFilterViews.swift in Sources */, A00000000000000000000090 /* CalendarFilterController+Outline.swift in Sources */, A00000000000000000000080 /* SettablePopUpButton.swift in Sources */, A00000000000000000000082 /* ConfigStore.swift in Sources */, A00000000000000000000006 /* WeekLayout.swift in Sources */, A00000000000000000000008 /* WeekGridView.swift in Sources */, A00000000000000000000007 /* WeekRowView.swift in Sources */, A00000000000000000000086 /* DayViews.swift in Sources */, A00000000000000000000092 /* FilterSelection.swift in Sources */, A00000000000000000000094 /* MainViewController+Filter.swift in Sources */);
+			files = (A00000000000000000000001 /* main.swift in Sources */, A00000000000000000000002 /* AppDelegate.swift in Sources */, A00000000000000000000004 /* MainViewController.swift in Sources */, A00000000000000000000084 /* MainViewController+Access.swift in Sources */, A00000000000000000000005 /* CalendarStore.swift in Sources */, A00000000000000000000009 /* CalendarFilterController.swift in Sources */, A00000000000000000000088 /* CalendarFilterViews.swift in Sources */, A00000000000000000000090 /* CalendarFilterController+Outline.swift in Sources */, A00000000000000000000080 /* SettablePopUpButton.swift in Sources */, A00000000000000000000082 /* ConfigStore.swift in Sources */, A00000000000000000000006 /* WeekLayout.swift in Sources */, A00000000000000000000008 /* WeekGridView.swift in Sources */, A00000000000000000000007 /* WeekRowView.swift in Sources */, A00000000000000000000086 /* DayViews.swift in Sources */, A00000000000000000000102 /* DayDetailController.swift in Sources */, A00000000000000000000092 /* FilterSelection.swift in Sources */, A00000000000000000000094 /* MainViewController+Filter.swift in Sources */, A00000000000000000000096 /* CalendarStore+Write.swift in Sources */, A00000000000000000000098 /* ItemEditor.swift in Sources */, A00000000000000000000100 /* MainViewController+Edit.swift in Sources */);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
@@ -159,8 +167,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_NAME)";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "jj-calendar 只读读取系统日历日程用于展示, 不会修改任何数据.";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "jj-calendar 只读读取提醒事项用于展示, 不会修改任何数据.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "jj-calendar 读取系统日历日程用于展示; 仅在你操作时新建 / 修改 / 删除日程.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "jj-calendar 读取提醒事项用于展示; 仅在你操作时新建 / 修改 / 删除 / 完成提醒.";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.yigegongjiang.jj-calendar.debug";
 				PRODUCT_NAME = "jj-calendar Debug";
 			};
@@ -179,8 +187,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_NAME)";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "jj-calendar 只读读取系统日历日程用于展示, 不会修改任何数据.";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "jj-calendar 只读读取提醒事项用于展示, 不会修改任何数据.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "jj-calendar 读取系统日历日程用于展示; 仅在你操作时新建 / 修改 / 删除日程.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "jj-calendar 读取提醒事项用于展示; 仅在你操作时新建 / 修改 / 删除 / 完成提醒.";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.yigegongjiang.jj-calendar";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

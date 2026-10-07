@@ -23,9 +23,19 @@ final class MainViewController: NSViewController {
         labels: RowSpan.allCases.map(\.title), trackingMode: .selectOne, target: nil, action: nil
     )
     private let monthTintToggle = NSButton(checkboxWithTitle: "忽略背景色", target: nil, action: nil)
+    /// 新建日程 / 提醒 (⌘N).
+    let newItemButton = NSButton(title: "新建", target: nil, action: nil)
+    let itemEditor = ItemEditorController()
+    lazy var editorPopover: NSPopover = {
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.contentViewController = itemEditor
+        return popover
+    }()
+
     /// 标题栏右侧按钮区: 开关类按钮统一追加到此 stack; AppDelegate 挂到窗口.
     private(set) lazy var titlebarAccessory: NSTitlebarAccessoryViewController = {
-        let stack = NSStackView(views: [rowSpanControl, monthTintToggle])
+        let stack = NSStackView(views: [newItemButton, rowSpanControl, monthTintToggle])
         stack.spacing = 8
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         stack.frame.size = stack.fittingSize
@@ -134,6 +144,7 @@ final class MainViewController: NSViewController {
             popup.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
         }
         configureFilterControls()
+        configureEditing()
         rowSpanControl.setAccessibilityIdentifier("rowSpanControl")
         rowSpanControl.target = self
         rowSpanControl.action = #selector(rowSpanChanged)

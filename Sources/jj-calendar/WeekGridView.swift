@@ -103,6 +103,17 @@ final class WeekGridView: NSView {
 
     /// 数据刷新时当日列表仍打开: layout 后重新锚定到该日期所在格 (行 / 列可能已变).
     private var pendingAnchor: (row: Int, col: Int)?
+    /// 当日列表锚定的格; 列表内新建 / 编辑据此锚定编辑器.
+    private var shownCell: (row: Int, col: Int)?
+
+    /// 编辑条目 / 在某日新建: 锚定 rect (view 坐标); 由 MainViewController 弹出编辑器.
+    var onEditItem: ((_ item: CalendarEvent, _ rect: NSRect, _ view: NSView) -> Void)?
+    var onCreateItem: ((_ day: Date, _ isReminder: Bool, _ rect: NSRect, _ view: NSView) -> Void)?
+    var onToggleCompleted: ((CalendarEvent, Bool) async throws -> Void)? {
+        get { dayDetail.onToggleCompleted }
+        set { dayDetail.onToggleCompleted = newValue }
+    }
+
     /// 最近一次排版的各行容量; 视口外的行稍后按此补建.
     private var capacities: [Int] = []
     private var deferredApply: Task<Void, Never>?
@@ -142,6 +153,15 @@ final class WeekGridView: NSView {
         NotificationCenter.default.addObserver(
             self, selector: #selector(systemColorsChanged), name: NSColor.systemColorsDidChangeNotification, object: nil
         )
+        dayDetail.onEdit = { [weak self] item in
+            self?.fromDayList { $0.onEditItem?(item, $1, $2) }
+        }
+        dayDetail.onCreate = { [weak self] isReminder in
+            self?.fromDayList { grid, rect, view in
+                guard let date = grid.dayDetail.date else { return }
+                grid.onCreateItem?(date, isReminder, rect, view)
+            }
+        }
     }
 
     @available(*, unavailable)
@@ -166,6 +186,18 @@ final class WeekGridView: NSView {
             let index = rowViews.count
             view.onSelectDay = { [weak self] col, cell in
                 self?.toggleDay(row: index, col: col, cell: cell)
+            }
+            view.onEditItem = { [weak self, weak view] item, rect in
+                guard let self, let view else { return }
+                dayPopover.close()
+                onEditItem?(item, rect, view)
+            }
+            view.onCreate = { [weak self, weak view] col, cell, isReminder in
+                guard let self, let view, rows.indices.contains(index), rows[index].days.indices.contains(col) else {
+                    return
+                }
+                dayPopover.close()
+                onCreateItem?(rows[index].days[col].date, isReminder, cell, view)
             }
             rowViews.append(view)
             documentView.addSubview(view)
@@ -194,7 +226,16 @@ final class WeekGridView: NSView {
             return
         }
         dayDetail.update(day: day, items: items, calendar: calendar)
+        shownCell = (row, col)
         dayPopover.show(relativeTo: cell, of: rowViews[row], preferredEdge: .maxX)
+    }
+
+    /// 当日列表内的新建 / 编辑: 关闭列表, 编辑器锚定同一日期格.
+    private func fromDayList(_ open: (WeekGridView, NSRect, NSView) -> Void) {
+        guard let cell = shownCell, rowViews.indices.contains(cell.row) else { return }
+        let view = rowViews[cell.row]
+        dayPopover.close()
+        open(self, view.cellRect(cell.col), view)
     }
 
     /// 数据刷新: 打开中的日期仍在区间内 -> 原地更新内容, 否则关闭.
@@ -204,6 +245,7 @@ final class WeekGridView: NSView {
             if let col = row.days.firstIndex(where: { $0.date == date }) {
                 dayDetail.update(day: row.days[col], items: row.items(at: col), calendar: calendar)
                 pendingAnchor = (index, col)
+                shownCell = (index, col)
                 return
             }
         }

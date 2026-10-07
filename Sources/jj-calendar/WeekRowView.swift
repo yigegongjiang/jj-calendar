@@ -3,7 +3,8 @@ import AppKit
 /// 一行: 日期格 (≤ 7 / 14 个, 区间首日前、末日后留空) + 事件 chip; 无子视图, 整行渲染为一张位图 (layer.contents).
 /// 滚动只移动图层不重绘; 仅内容 / 尺寸 / 外观变化时重新渲染, 后台线程渲染 (主线程不排版文字); 远离视口 (isLive = false) 释放位图.
 /// 容量不足的列: 末行改为「+N 项」; 点击日期格 / chip / +N -> 当日完整列表 (onSelectDay).
-/// AX: 日期格 / chip / +N 为虚拟子元素 (可按下); 悬停 chip / +N 显示 tooltip.
+/// 双击可写 chip -> 编辑 (onEditItem); 双击日期格空白 -> 当日新建日程 (onCreate).
+/// AX: 日期格 / chip / +N 为虚拟子元素 (可按下); 日期格自定义动作「新建日程 / 新建提醒」, 可写 chip「编辑」; 悬停 chip / +N 显示 tooltip.
 final class WeekRowView: NSView {
     struct Config: Equatable {
         let typography: Typography
@@ -32,6 +33,10 @@ final class WeekRowView: NSView {
 
     /// 点击 / AX 按下某列 -> 由 WeekGridView 弹出当日列表, 锚定该日期格 (本视图坐标).
     var onSelectDay: ((_ col: Int, _ cell: NSRect) -> Void)?
+    /// 编辑条目, 锚定 chip (本视图坐标).
+    var onEditItem: ((_ item: CalendarEvent, _ rect: NSRect) -> Void)?
+    /// 在该列日期新建, 锚定日期格.
+    var onCreate: ((_ col: Int, _ cell: NSRect, _ isReminder: Bool) -> Void)?
 
     /// 位于视口附近: 持有位图; 否则释放 (位图内存只随视口增长).
     var isLive = false {
@@ -200,11 +205,24 @@ final class WeekRowView: NSView {
         onSelectDay?(col, cellRect(col))
     }
 
-    /// 按横坐标定位列.
+    /// 按横坐标定位列; 双击: chip -> 编辑 (只读 / +N 忽略), 空白 -> 新建日程.
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if let col = cells.indices.first(where: { cellRect($0).minX <= point.x && point.x < cellRect($0).maxX }) {
+        let col = cells.indices.first { cellRect($0).minX <= point.x && point.x < cellRect($0).maxX }
+        guard let col else { return }
+        switch event.clickCount {
+        case 1:
             select(col)
+        case 2:
+            if let index = slotRects.firstIndex(where: { $0.contains(point) }) {
+                if case let .chip(art) = slots[index].art, art.event.isWritable {
+                    onEditItem?(art.event, slotRects[index])
+                }
+            } else {
+                onCreate?(col, cellRect(col), false)
+            }
+        default:
+            break
         }
     }
 
@@ -335,19 +353,35 @@ extension WeekRowView {
             element.onPress = { [weak self] in self?.select(col) }
             return element
         }
-        let days = cells.enumerated().map { col, cell in
-            element(.group, cell.accessibilityLabel, cellRect(col), col: col)
+        func action(_ name: String, _ body: @escaping @MainActor (WeekRowView) -> Void) -> NSAccessibilityCustomAction {
+            NSAccessibilityCustomAction(name: name) { [weak self] in
+                guard let self else { return false }
+                body(self)
+                return true
+            }
         }
-        let items = zip(slots, slotRects).map { slot, rect in
+        let days = cells.enumerated().map { col, cell in
+            let day = element(.group, cell.accessibilityLabel, cellRect(col), col: col)
+            day.setAccessibilityCustomActions([
+                action("新建日程") { $0.onCreate?(col, $0.cellRect(col), false) },
+                action("新建提醒") { $0.onCreate?(col, $0.cellRect(col), true) }
+            ])
+            return day
+        }
+        let items = zip(slots, slotRects).map { slot, rect -> RowElement in
             switch slot.art {
             case let .chip(art):
-                element(
+                let chip = element(
                     .staticText,
                     EventText.detail(art.event, calendar: calendar).replacingOccurrences(of: "\n", with: " · "),
                     rect, col: slot.startCol
                 )
+                if art.event.isWritable {
+                    chip.setAccessibilityCustomActions([action("编辑") { $0.onEditItem?(art.event, rect) }])
+                }
+                return chip
             case let .more(art):
-                element(.button, "另有 \(art.hidden.count) 项未显示, 查看当日全部", rect, col: slot.startCol)
+                return element(.button, "另有 \(art.hidden.count) 项未显示, 查看当日全部", rect, col: slot.startCol)
             }
         }
         return days + items

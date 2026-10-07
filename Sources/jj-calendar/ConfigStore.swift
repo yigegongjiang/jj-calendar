@@ -23,6 +23,9 @@ struct AppState: Codable, Equatable {
     var solos: [SoloRecord] = []
     var collapsedCalendarGroups: [String] = ["calendars:ignored", "reminders:ignored"]
     var window: WindowFrame?
+    /// 上次新建 / 编辑保存所用的日历 / 提醒列表: 新建默认选中.
+    var lastEventCalendarID: String?
+    var lastReminderListID: String?
 }
 
 struct WindowFrame: Codable, Equatable {
