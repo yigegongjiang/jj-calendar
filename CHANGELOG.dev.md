@@ -7,6 +7,22 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.7.0] - 2026-10-07
+
+### Added
+
+- 快速录入: 标题栏「新建」/ ⌘N / 双击日期格空白, 新建日程或提醒 (标题 / 日历 / 全天 / 时间)
+  - `ItemEditorController` (popover) + `MainViewController+Edit`; File 菜单 ⌘N; `WeekRowView.mouseDown` clickCount 2 -> `onCreate`
+  - 有时刻的提醒: 截止时刻变化时同步移动 / 补 `EKAlarm(absoluteDate:)`
+- 快速微调: 双击条目或当日列表「编辑」, 可改标题 / 日历 / 时间, 或删除 (二次确认); 重复日程只改本次
+  - `CalendarStore+Write`: 按 `calendarItemIdentifier` + `occurrenceDate` 重新取目标, `save/remove(span: .thisEvent, commit: true)`
+  - Debug 构建 `checkWritable` 限测试白名单 (iCloud 账户下精确标题); 重复提醒无 span, 作用于整个系列 (编辑器提示)
+- 当日列表: 「+日程 / +提醒」在当日新建; 提醒前的勾选框直接完成 / 取消完成
+  - `DayDetailController` 拆出独立文件; `ClosureButton`; 完成失败回滚勾选 + 红字提示
+- 只读日历 (订阅 / 节假日 / 生日) 与他人组织的会议不提供编辑入口; 新建默认沿用上次所选日历 / 列表
+  - `CalendarEvent.isWritable` = `allowsContentModifications` && (无参与人 || 组织者为本人); `state.json` `lastEventCalendarID` / `lastReminderListID`
+  - AX: 日期格自定义动作「新建日程 / 新建提醒」, 可写条目「编辑」
+
 ## [0.6.2] - 2026-10-07
 
 ### Added
