@@ -56,8 +56,8 @@ final class FilterGroup: NSObject {
     }
 }
 
-/// 一行: 复选框 (日历色方框 / 分组三态) + 悬停显示的操作按钮; 分组行另有「显示数 / 总数」.
-/// 操作按钮常驻视图树 (仅透明度切换): 无障碍始终可按, 鼠标只在悬停时看得到 / 点得到.
+/// 一行: 复选框 (日历色方框 / 分组三态) + 右侧固定宽度的「只显示」列 (所有行同一位置, 常驻);
+/// 「忽略」在其左侧, 悬停才显示 (仅透明度切换, 无障碍始终可按); 分组行在「只显示」左侧显示「显示数 / 总数」.
 final class FilterCell: NSTableCellView {
     enum Kind {
         case group, item
@@ -74,6 +74,7 @@ final class FilterCell: NSTableCellView {
     private let soloButton = FilterCell.pushButton("只显示", target: nil, action: nil)
     private let ignoreButton = FilterCell.pushButton("忽略", target: nil, action: nil)
     private var isRevealed = false
+    private var soloTitle = "只显示"
     /// 当前只显示的对象: 「还原」常驻.
     private var isSoloTarget = false
 
@@ -87,14 +88,19 @@ final class FilterCell: NSTableCellView {
         checkbox.imageHugsTitle = true
         checkbox.alignment = .left
         checkbox.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // 复选框吸收剩余宽度: 否则单元格按内容收缩, 右侧按钮随标题长度漂移.
+        checkbox.setContentHuggingPriority(.init(1), for: .horizontal)
         soloButton.target = self
         soloButton.action = #selector(soloPressed)
         ignoreButton.target = self
         ignoreButton.action = #selector(ignorePressed)
         countLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
         countLabel.textColor = .tertiaryLabelColor
-        let actions = NSStackView(views: kind == .group ? [soloButton] : [soloButton, ignoreButton])
+        let actions = NSStackView(views: kind == .group ? [soloButton] : [ignoreButton, soloButton])
         actions.spacing = 4
+        // 固定宽度: 「只显示」/「还原」/ 悬停边框切换都不改变位置.
+        soloButton.widthAnchor.constraint(equalToConstant: 66).isActive = true
+        ignoreButton.widthAnchor.constraint(equalToConstant: 70).isActive = true
         for subview in [checkbox, countLabel, actions] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             addSubview(subview)
@@ -105,10 +111,10 @@ final class FilterCell: NSTableCellView {
             // 条目: 复选框铺满到操作按钮, 整行任意处点击即切换; 分组: 空白处点击展开 / 折叠.
             kind == .item
                 ? checkbox.trailingAnchor.constraint(equalTo: actions.leadingAnchor, constant: -6)
-                : checkbox.trailingAnchor.constraint(lessThanOrEqualTo: actions.leadingAnchor, constant: -6),
+                : checkbox.trailingAnchor.constraint(lessThanOrEqualTo: countLabel.leadingAnchor, constant: -6),
             actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             actions.centerYAnchor.constraint(equalTo: centerYAnchor),
-            countLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            countLabel.trailingAnchor.constraint(equalTo: actions.leadingAnchor, constant: -8),
             countLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
         setRevealed(false)
@@ -148,25 +154,32 @@ final class FilterCell: NSTableCellView {
         setSolo(isSolo, name: group.title, key: group.soloKey)
     }
 
-    /// 只显示对象: 强调色「还原」常驻; 其余行悬停才出现「只显示」.
+    /// 只显示对象: 强调色「还原」; 其余行「只显示」.
     private func setSolo(_ isSolo: Bool, name: String, key: String) {
         isSoloTarget = isSolo
-        soloButton.title = isSolo ? "还原" : "只显示"
+        soloTitle = isSolo ? "还原" : "只显示"
         soloButton.image = isSolo ? Self.restoreIcon : nil
         soloButton.imagePosition = .imageLeading
-        soloButton.bezelColor = isSolo ? .controlAccentColor : nil
         soloButton.toolTip = isSolo ? "还原到只显示前的状态" : "只显示\(name) (当前页签内; 可随时还原)"
-        soloButton.setAccessibilityLabel("\(soloButton.title) \(name)")
+        soloButton.setAccessibilityLabel("\(soloTitle) \(name)")
         soloButton.setAccessibilityIdentifier("only:" + key)
         setRevealed(isRevealed)
     }
 
-    /// 悬停 / 键盘选中时显示操作按钮, 分组行同时让出计数位置.
+    /// 「只显示」常驻: 平时淡色文字, 悬停 / 键盘选中加边框; 「还原」始终强调色边框. 「忽略」仅悬停显示.
     func setRevealed(_ revealed: Bool) {
         isRevealed = revealed
-        soloButton.alphaValue = revealed || isSoloTarget ? 1 : 0
+        let prominent = revealed || isSoloTarget
+        soloButton.isBordered = prominent
+        soloButton.bezelColor = isSoloTarget ? .controlAccentColor : nil
+        if prominent {
+            soloButton.title = soloTitle
+        } else {
+            soloButton.attributedTitle = NSAttributedString(string: soloTitle, attributes: [
+                .font: soloButton.font ?? .systemFont(ofSize: 11), .foregroundColor: NSColor.tertiaryLabelColor
+            ])
+        }
         ignoreButton.alphaValue = revealed ? 1 : 0
-        countLabel.alphaValue = revealed || isSoloTarget ? 0 : 1
     }
 
     @objc
