@@ -7,6 +7,13 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.7.1] - 2026-10-07
+
+### Added
+
+- 菜单新增「About jj-calendar」: 查看当前版本号
+  - App 菜单首项 -> `NSApplication.orderFrontStandardAboutPanel(_:)`, 版本取 `MARKETING_VERSION (CURRENT_PROJECT_VERSION)`
+
 ## [0.7.0] - 2026-10-07
 
 ### Added

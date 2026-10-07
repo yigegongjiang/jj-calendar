@@ -11,6 +11,12 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.7.1] - 2026-10-07
+
+### Added
+
+- 菜单新增「About jj-calendar」: 查看当前版本号
+
 ## [0.7.0] - 2026-10-07
 
 ### Added
