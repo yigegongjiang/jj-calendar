@@ -118,13 +118,14 @@ extension CalendarStore {
         return event
     }
 
-    /// 原所属 + 目标容器均须可写; Debug 构建另限测试白名单 (iCloud 下精确标题), 调试不触碰真实数据.
+    /// 原所属 + 目标容器均须可写; Debug 构建另限测试白名单 (iCloud 账户下精确标题), 调试不触碰真实数据.
     private func checkWritable(_ calendars: [EKCalendar?]) throws {
         for calendar in calendars {
             guard let calendar, calendar.allowsContentModifications else { throw WriteError.readOnly }
             #if DEBUG
+            // iCloud 账户源标题 = Apple ID 邮箱; 按后缀匹配, 公开仓库不写具体账户.
             let source = calendar.source?.title ?? ""
-            guard Self.debugWritable.contains(calendar.title), source == "iCloud" else {
+            guard Self.debugWritable.contains(calendar.title), source.hasSuffix("@icloud.com") else {
                 throw WriteError.guarded("\(source) / \(calendar.title)")
             }
             #endif
