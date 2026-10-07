@@ -9,7 +9,7 @@ final class ItemEditorController: NSViewController {
         let isReminder: Bool
         /// 新建默认日期.
         let day: Date
-        /// 可写的日历 + 提醒列表.
+        /// 候选日历 + 提醒列表 (由调用方按筛选状态过滤).
         let calendars: [CalendarSummary]
         /// 新建默认容器: 上次使用 -> 系统默认 -> 首个.
         let defaultEventCalendarID: String?
@@ -186,7 +186,7 @@ final class ItemEditorController: NSViewController {
         completedRow.isHidden = !isReminder || request.item == nil
         applyAllDay()
         if selected == nil {
-            showNote(isReminder ? "无可写的提醒事项列表" : "无可写的日历", error: true)
+            showNote(isReminder ? "筛选中无可写的提醒事项列表" : "筛选中无可写的日历", error: true)
         }
     }
 
