@@ -174,6 +174,11 @@ actor CalendarStore {
         }
     }
 
+    /// 他人组织的会议不可改: 改动 / 删除会同步给其他参与人.
+    private nonisolated static func isOwn(_ event: EKEvent) -> Bool {
+        !event.hasAttendees || event.organizer?.isCurrentUser ?? true
+    }
+
     private nonisolated static func entry(_ event: EKEvent) -> CalendarEvent {
         let location = event.location?.trimmingCharacters(in: .whitespacesAndNewlines)
         return CalendarEvent(
@@ -189,7 +194,7 @@ actor CalendarStore {
             isCompleted: false,
             itemID: event.calendarItemIdentifier,
             occurrence: event.occurrenceDate,
-            isWritable: event.calendar.allowsContentModifications,
+            isWritable: event.calendar.allowsContentModifications && isOwn(event),
             isRecurring: event.hasRecurrenceRules || event.isDetached
         )
     }

@@ -303,7 +303,6 @@ extension ItemEditorController {
         guard confirmingDelete else {
             confirmingDelete = true
             deleteButton.title = "确认删除"
-            showNote(item.isRecurring && !item.isReminder ? "仅删除本次" : nil)
             return
         }
         run { [onDelete] in try await onDelete?(item) }
@@ -363,8 +362,10 @@ extension ItemEditorController {
 
     /// 重复日程提示 / 错误 (红色); 无内容时隐藏.
     private func showNote(_ text: String?, error: Bool = false) {
-        let recurring = request?.item.map { $0.isRecurring && !$0.isReminder } == true
-        let text = text ?? (recurring ? "重复日程: 修改 / 删除只作用于本次" : nil)
+        let recurring = request?.item.flatMap { item in
+            item.isRecurring ? item.isReminder ? "重复提醒: 修改 / 删除作用于整个系列" : "重复日程: 修改 / 删除只作用于本次" : nil
+        }
+        let text = text ?? recurring
         noteLabel.stringValue = text ?? ""
         noteLabel.textColor = error ? .systemRed : .secondaryLabelColor
         noteLabel.isHidden = text == nil
