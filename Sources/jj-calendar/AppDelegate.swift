@@ -75,9 +75,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "jj-calendar"
     }
 
+    /// 配置即文件: Finder 打开配置目录, 手工编辑 config.jsonc. Debug 实例不激活 Finder, 不打断人类.
+    @objc
+    private func openConfigFolder(_: Any?) {
+        try? FileManager.default.createDirectory(at: ConfigStore.directory, withIntermediateDirectories: true)
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = DebugInstance.tag == nil
+        NSWorkspace.shared.open(ConfigStore.directory, configuration: configuration)
+    }
+
     /// 无 nib 时系统不生成菜单栏; 最小菜单保证 ⌘Q / ⌘W / ⌘M 可用.
     private func makeMainMenu(fontTarget: MainViewController) -> NSMenu {
         let appMenu = NSMenu()
+        let openConfig = #selector(openConfigFolder(_:))
+        let settings = appMenu.addItem(withTitle: "Settings…", action: openConfig, keyEquivalent: ",")
+        settings.target = self
+        appMenu.addItem(.separator())
         let quit = #selector(NSApplication.terminate(_:))
         appMenu.addItem(withTitle: "Quit \(appName)", action: quit, keyEquivalent: "q")
 
