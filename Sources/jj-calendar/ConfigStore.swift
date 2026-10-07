@@ -17,6 +17,8 @@ struct AppState: Codable, Equatable {
     var ignoredCalendarIDs: [String] = []
     /// 筛选面板: 当前页签 (FilterSource.rawValue) + 折叠的分组 key; 默认折叠「已忽略」.
     var filterTab = 0
+    /// 整源关闭的 FilterSource.rawValue: 主界面不显示该源, 各列表勾选不变.
+    var disabledSources: [Int] = []
     var collapsedCalendarGroups: [String] = ["calendars:ignored", "reminders:ignored"]
     var window: WindowFrame?
 }

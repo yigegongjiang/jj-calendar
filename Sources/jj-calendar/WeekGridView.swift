@@ -49,12 +49,12 @@ enum EventText {
 
     /// 工具栏摘要「N 个日程 · M 个提醒 · 逾期 K」; 逾期含区间前 (网格不可见), overdue = 悬停列出全部逾期提醒.
     static func summary(
-        _ items: [CalendarEvent], range: MonthRange, reminders: Bool, calendar: Calendar
+        _ items: [CalendarEvent], range: MonthRange, sources: Set<FilterSource>, calendar: Calendar
     ) -> (text: String, overdue: String?) {
         // 有时刻的提醒 end == start: 起点落在区间内即算.
         let inRange = items.filter { $0.start < range.end && ($0.end > range.start || $0.start >= range.start) }
-        var parts = ["\(inRange.count { !$0.isReminder }) 个日程"]
-        guard reminders else { return (parts[0], nil) }
+        var parts = sources.contains(.calendars) ? ["\(inRange.count { !$0.isReminder }) 个日程"] : []
+        guard sources.contains(.reminders) else { return (parts.first ?? "日历 / 提醒事项均已关闭", nil) }
         parts.append("\(inRange.count(where: \.isReminder)) 个提醒")
         let overdue = items.filter { !$0.isIgnored && $0.isOverdue && $0.start < range.end }
             .sorted { $0.start < $1.start }

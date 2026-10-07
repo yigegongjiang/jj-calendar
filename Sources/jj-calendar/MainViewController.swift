@@ -247,8 +247,10 @@ final class MainViewController: NSViewController {
         guard let snapshot else { return }
         let range = range
         let now = Date()
+        let disabled = FilterSource.disabled
         let items = (snapshot.events + snapshot.reminders).compactMap { event -> CalendarEvent? in
-            guard !hiddenCalendarIDs.contains(event.calendarID) else { return nil }
+            guard !hiddenCalendarIDs.contains(event.calendarID),
+                  !disabled.contains(FilterSource(isReminder: event.isReminder)) else { return nil }
             var event = event
             event.isIgnored = ignoredCalendarIDs.contains(event.calendarID)
             event.isOverdue = event.overdue(at: now)
@@ -256,7 +258,9 @@ final class MainViewController: NSViewController {
         }
         let rows = WeekLayout.build(range: range, span: rowSpan, events: items, calendar: calendar, now: now)
         gridView.update(rows: rows, calendar: calendar)
-        let summary = EventText.summary(items, range: range, reminders: snapshot.access.reminders, calendar: calendar)
+        let sources = Set(FilterSource.allCases).subtracting(disabled)
+            .filter { $0 == .calendars || snapshot.access.reminders }
+        let summary = EventText.summary(items, range: range, sources: sources, calendar: calendar)
         summaryLabel.stringValue = summary.text
         summaryLabel.toolTip = summary.overdue
         scheduleOverdueRefresh(items)
@@ -360,9 +364,7 @@ extension MainViewController {
 extension MainViewController {
     private func rebuildCalendarsMenu(_ calendars: [CalendarSummary]) {
         filterController.update(calendars: calendars, hidden: hiddenCalendarIDs, ignored: ignoredCalendarIDs)
-        // 已忽略日历的隐藏不计入: 常态隐藏不应常驻提示.
-        let hidden = calendars.count { hiddenCalendarIDs.contains($0.id) && !ignoredCalendarIDs.contains($0.id) }
-        calendarsButton.title = hidden == 0 ? "日历 · 提醒 ▾" : "日历 · 提醒 (隐藏 \(hidden)) ▾"
+        calendarsButton.title = FilterSource.buttonTitle(calendars, hiddenCalendarIDs, ignoredCalendarIDs)
     }
 
     /// 再次点击关闭: App 在后台时 transient popover 不会因外部点击关闭.

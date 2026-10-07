@@ -12,8 +12,34 @@ enum FilterSource: Int, CaseIterable {
         self == .calendars ? "日历" : "提醒事项"
     }
 
+    var shortTitle: String {
+        self == .calendars ? "日历" : "提醒"
+    }
+
+    /// 整源开关: 关闭的源主界面不显示, 各列表勾选状态不变.
+    @MainActor static var disabled: Set<FilterSource> {
+        Set(ConfigStore.state.disabledSources.compactMap(FilterSource.init(rawValue:)))
+    }
+
+    init(isReminder: Bool) {
+        self = isReminder ? .reminders : .calendars
+    }
+
     func contains(_ summary: CalendarSummary) -> Bool {
         summary.isReminderList == (self == .reminders)
+    }
+
+    /// 工具栏按钮标题: 关闭的源标「关」; 隐藏数只计开启源中未忽略的列表 (常态忽略不应常驻提示).
+    @MainActor
+    static func buttonTitle(_ calendars: [CalendarSummary], _ hidden: Set<String>, _ ignored: Set<String>) -> String {
+        let off = disabled
+        let names = allCases.map { off.contains($0) ? "\($0.shortTitle) 关" : $0.shortTitle }
+            .joined(separator: " · ")
+        let count = calendars.count {
+            !off.contains(FilterSource(isReminder: $0.isReminderList)) && hidden.contains($0.id)
+                && !ignored.contains($0.id)
+        }
+        return count == 0 ? "\(names) ▾" : "\(names) (隐藏 \(count)) ▾"
     }
 }
 
@@ -306,67 +332,5 @@ final class FilterOutlineView: NSOutlineView {
         default:
             super.keyDown(with: event)
         }
-    }
-}
-
-// MARK: - Search / context menu
-
-extension CalendarFilterController: NSSearchFieldDelegate, NSMenuDelegate {
-    func controlTextDidChange(_ obj: Notification) {
-        reload()
-    }
-
-    /// ↓ / 回车: 进入列表并选中首个条目.
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        guard commandSelector == #selector(NSResponder.moveDown(_:))
-            || commandSelector == #selector(NSResponder.insertNewline(_:)) else { return false }
-        let first = (0..<outline.numberOfRows).first { outline.item(atRow: $0) is FilterItem } ?? 0
-        guard outline.numberOfRows > 0 else { return true }
-        view.window?.makeFirstResponder(outline)
-        outline.selectRowIndexes([first], byExtendingSelection: false)
-        outline.scrollRowToVisible(first)
-        return true
-    }
-
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        menu.removeAllItems()
-        let row = outline.clickedRow
-        guard row >= 0, let node = outline.item(atRow: row) else { return }
-        var entries: [(String, FilterAction)] = []
-        if let item = node as? FilterItem {
-            let id = item.summary.id
-            entries = [
-                (isSolo(key: id, ids: [id]) ? "还原" : "只显示「\(item.summary.title)」", .solo),
-                (item.isIgnored ? "取消忽略" : "忽略 (不参与全部显示)", .ignore)
-            ]
-        } else if let group = node as? FilterGroup {
-            entries = [
-                (isSolo(key: group.soloKey, ids: Set(group.ids)) ? "还原" : "只显示本组", .solo),
-                ("显示本组全部", .show),
-                ("隐藏本组全部", .hide)
-            ]
-        }
-        for (title, action) in entries {
-            let menuItem = NSMenuItem(title: title, action: #selector(menuAction(_:)), keyEquivalent: "")
-            menuItem.target = self
-            menuItem.representedObject = MenuTarget(node: node, action: action)
-            menu.addItem(menuItem)
-        }
-    }
-
-    @objc
-    private func menuAction(_ sender: NSMenuItem) {
-        guard let target = sender.representedObject as? MenuTarget else { return }
-        perform(target.action, on: target.node)
-    }
-}
-
-private final class MenuTarget: NSObject {
-    let node: Any
-    let action: FilterAction
-
-    init(node: Any, action: FilterAction) {
-        self.node = node
-        self.action = action
     }
 }

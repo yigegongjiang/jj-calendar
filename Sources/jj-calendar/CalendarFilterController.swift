@@ -2,6 +2,7 @@ import AppKit
 
 /// 日历筛选面板 (popover): 页签 (日历 / 提醒事项) + 搜索 + 分组大纲; 整行点击切换显示, 面板不关闭; 超出可用高度滚动.
 /// - 两个页签分开控制: 全部显示 / 全部隐藏 / 只显示 只作用于当前页签.
+/// - 每个页签有整源开关: 关闭 = 主界面不显示该源, 列表勾选保持, 重新打开即恢复.
 /// - 分组: 按账户, 「已忽略」置底默认折叠; 页签 + 折叠状态持久化.
 /// - 分组复选框 = 整组显示 / 隐藏; 悬停 / 选中行显示「只显示」「忽略」; 同项再点「还原」回到只显示前.
 /// - ⌥ 点击 / ⌥ 空格 = 只显示; 空格 / 回车 = 切换; 搜索框 ↓ 进入列表, 列表首行 ↑ 回搜索框.
@@ -14,7 +15,7 @@ final class CalendarFilterController: NSViewController {
     private var calendars: [CalendarSummary] = []
     private var hidden: Set<String> = []
     private var ignored: Set<String> = []
-    private var groups: [FilterGroup] = []
+    private(set) var groups: [FilterGroup] = []
     private var source = FilterSource(rawValue: ConfigStore.state.filterTab) ?? .calendars
     private var collapsed = Set(ConfigStore.state.collapsedCalendarGroups)
     /// 最近一次「只显示」: 同一项再点还原.
@@ -24,12 +25,14 @@ final class CalendarFilterController: NSViewController {
     private let tabs = NSSegmentedControl(
         labels: FilterSource.allCases.map(\.title), trackingMode: .selectOne, target: nil, action: nil
     )
+    private let sourceLabel = NSTextField(labelWithString: "")
+    private let sourceSwitch = NSSwitch()
     private let searchField = NSSearchField()
     private let emptyLabel = NSTextField(labelWithString: "")
     let outline = FilterOutlineView()
     private let scrollView = NSScrollView()
     private static let width: CGFloat = 360
-    private static let headerHeight: CGFloat = 78
+    private static let headerHeight: CGFloat = 108
 
     private var query: String {
         searchField.stringValue.trimmingCharacters(in: .whitespaces)
@@ -59,7 +62,8 @@ final class CalendarFilterController: NSViewController {
         searchField.setAccessibilityIdentifier("calendarsSearch")
         let bar = NSStackView(views: [searchField, showAll, hideAll])
         bar.spacing = 6
-        let top = NSStackView(views: [tabs, bar])
+        let toggleRow = sourceRow()
+        let top = NSStackView(views: [tabs, toggleRow, bar])
         top.orientation = .vertical
         top.alignment = .width
         top.spacing = 8
@@ -90,6 +94,20 @@ final class CalendarFilterController: NSViewController {
         ])
         self.view = view
         preferredContentSize = NSSize(width: Self.width, height: 200)
+    }
+
+    /// 「在 jj-calendar 中显示…」+ 整源开关.
+    private func sourceRow() -> NSStackView {
+        sourceSwitch.controlSize = .small
+        sourceSwitch.target = self
+        sourceSwitch.action = #selector(sourceToggled)
+        sourceSwitch.setAccessibilityIdentifier("sourceSwitch")
+        sourceLabel.font = .systemFont(ofSize: 12)
+        sourceLabel.setContentHuggingPriority(.init(1), for: .horizontal)
+        sourceSwitch.setContentHuggingPriority(.required, for: .horizontal)
+        let row = NSStackView(views: [sourceLabel, sourceSwitch])
+        row.distribution = .fill
+        return row
     }
 
     private func configureOutline() {
@@ -173,9 +191,37 @@ final class CalendarFilterController: NSViewController {
         updateSize()
     }
 
-    /// 页签标题带显示数: 「日历 3/5」(不计已忽略).
+    /// 整源开关状态; 关闭时列表淡化 (仍可编辑, 重新打开后生效).
+    private func updateSourceSwitch() {
+        let isOn = !FilterSource.disabled.contains(source)
+        sourceSwitch.state = isOn ? .on : .off
+        sourceLabel.stringValue = "在 jj-calendar 中显示\(source.title)"
+        sourceLabel.textColor = isOn ? .labelColor : .secondaryLabelColor
+        sourceSwitch.setAccessibilityLabel(sourceLabel.stringValue)
+        sourceSwitch.toolTip = "关闭: 主界面不显示\(source.title); 下方各列表勾选保持不变"
+        outline.alphaValue = isOn ? 1 : 0.45
+    }
+
+    @objc
+    private func sourceToggled() {
+        var disabled = FilterSource.disabled
+        if disabled.remove(source) == nil {
+            disabled.insert(source)
+        }
+        ConfigStore.update { $0.disabledSources = disabled.map(\.rawValue).sorted() }
+        updateTabs()
+        onChange?(hidden, ignored)
+    }
+
+    /// 页签标题带显示数: 「日历 3/5」(不计已忽略); 整源关闭: 「日历 · 关」.
     private func updateTabs() {
+        updateSourceSwitch()
+        let disabled = FilterSource.disabled
         for source in FilterSource.allCases {
+            guard !disabled.contains(source) else {
+                tabs.setLabel("\(source.title) · 关", forSegment: source.rawValue)
+                continue
+            }
             let active = calendars.filter { source.contains($0) && !ignored.contains($0.id) }
             let shown = active.count { !hidden.contains($0.id) }
             tabs.setLabel("\(source.title)  \(shown)/\(active.count)", forSegment: source.rawValue)
@@ -211,7 +257,7 @@ final class CalendarFilterController: NSViewController {
         preferredContentSize = NSSize(width: Self.width, height: min(height, max(maxHeight, 240)))
     }
 
-    private func configure(_ cell: FilterCell, for node: Any) {
+    func configure(_ cell: FilterCell, for node: Any) {
         if let item = node as? FilterItem {
             let id = item.summary.id
             let isSolo = isSolo(key: id, ids: [id])
@@ -229,7 +275,7 @@ final class CalendarFilterController: NSViewController {
         solo?.key == key && scopeIDs.subtracting(hidden) == ids
     }
 
-    private func persistCollapsed(_ notification: Notification, collapsed isCollapsed: Bool) {
+    func persistCollapsed(_ notification: Notification, collapsed isCollapsed: Bool) {
         guard !isReloading, query.isEmpty,
               let group = notification.userInfo?["NSObject"] as? FilterGroup else { return }
         if isCollapsed {
@@ -338,55 +384,5 @@ extension CalendarFilterController {
     private func commit() {
         refreshRows()
         onChange?(hidden, ignored)
-    }
-}
-
-// MARK: - Outline
-
-extension CalendarFilterController: NSOutlineViewDataSource, NSOutlineViewDelegate {
-    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
-        guard let item else { return groups.count }
-        return (item as? FilterGroup)?.items.count ?? 0
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
-        guard let group = item as? FilterGroup else { return groups[index] }
-        return group.items[index]
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
-        item is FilterGroup
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
-        Self.rowHeight(item)
-    }
-
-    static func rowHeight(_ item: Any?) -> CGFloat {
-        item is FilterGroup ? 26 : 24
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
-        FilterRowView()
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
-        let kind: FilterCell.Kind = item is FilterGroup ? .group : .item
-        let cell = outlineView.makeView(withIdentifier: kind.identifier, owner: nil) as? FilterCell ?? FilterCell(kind)
-        configure(cell, for: item)
-        return cell
-    }
-
-    /// 鼠标点击不选中 (点击即切换, 选中高亮多余); 键盘导航选中.
-    func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
-        NSApp.currentEvent?.type != .leftMouseDown
-    }
-
-    func outlineViewItemDidExpand(_ notification: Notification) {
-        persistCollapsed(notification, collapsed: false)
-    }
-
-    func outlineViewItemDidCollapse(_ notification: Notification) {
-        persistCollapsed(notification, collapsed: true)
     }
 }
