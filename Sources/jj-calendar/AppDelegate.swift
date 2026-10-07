@@ -87,6 +87,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 无 nib 时系统不生成菜单栏; 最小菜单保证 ⌘Q / ⌘W / ⌘M 可用.
     private func makeMainMenu(controller: MainViewController) -> NSMenu {
         let appMenu = NSMenu()
+        // 标准关于面板: 自动读取 Info.plist 的 CFBundleShortVersionString (CFBundleVersion).
+        let about = #selector(NSApplication.orderFrontStandardAboutPanel(_:))
+        appMenu.addItem(withTitle: "About \(appName)", action: about, keyEquivalent: "")
+        appMenu.addItem(.separator())
         let openConfig = #selector(openConfigFolder(_:))
         let settings = appMenu.addItem(withTitle: "Settings…", action: openConfig, keyEquivalent: ",")
         settings.target = self
