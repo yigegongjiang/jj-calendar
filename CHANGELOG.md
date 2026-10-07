@@ -11,6 +11,13 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.5.3] - 2026-10-07
+
+### Added
+
+- 筛选面板每个页签新增「在 jj-calendar 中显示日历 / 提醒事项」开关: 一键关闭或恢复整个来源, 各列表的勾选保持不变
+- 关闭的来源在按钮上标「关」(如「日历 关 · 提醒」), 摘要只统计开启的来源
+
 ## [0.5.2] - 2026-10-06
 
 ### Changed

@@ -7,6 +7,15 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.5.3] - 2026-10-07
+
+### Added
+
+- 筛选面板每个页签新增「在 jj-calendar 中显示日历 / 提醒事项」开关: 一键关闭或恢复整个来源, 各列表的勾选保持不变
+  - `AppState.disabledSources`; `FilterSource.disabled` 在 `relayout` 过滤; NSSwitch AX id `sourceSwitch`; 关闭时列表淡化仍可编辑
+- 关闭的来源在按钮上标「关」(如「日历 关 · 提醒」), 摘要只统计开启的来源
+  - `FilterSource.buttonTitle`; `EventText.summary(sources:)`; 大纲 / 搜索菜单扩展拆到 `CalendarFilterController+Outline.swift`
+
 ## [0.5.2] - 2026-10-06
 
 ### Changed
