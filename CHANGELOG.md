@@ -11,6 +11,14 @@
 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/).
 
+## [0.8.0] - 2026-10-12
+
+### Added
+
+- iPhone 独立 App reminds: 文本录入提醒事项 (日期 / 时分 / 优先级) 与定时闹钟 (≤ 48 小时)
+- 每个页签沿用上次的列表 / 时间间隔 / 优先级; 冷启动直接进入输入
+- 闹钟支持延后 / 停止 / 提前结束, 结束后自动完成提醒事项并清理闹钟
+
 ## [0.7.2] - 2026-10-07
 
 ### Changed

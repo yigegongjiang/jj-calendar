@@ -7,6 +7,17 @@
 
 # Changelog (developer, follow [CHANGELOG.md](./CHANGELOG.md))
 
+## [0.8.0] - 2026-10-12
+
+### Added
+
+- iPhone 独立 App reminds: 文本录入提醒事项 (日期 / 时分 / 优先级) 与定时闹钟 (≤ 48 小时)
+  - `iphone/`: UIKit + EventKit + AlarmKit, iOS 26.1+; 时间为并排点选列, 列表为导航栏菜单
+- 每个页签沿用上次的列表 / 时间间隔 / 优先级; 冷启动直接进入输入
+  - Application Support 原子状态文件只保存偏好与未结束闹钟关联, 不保存事项内容
+- 闹钟支持延后 / 停止 / 提前结束, 结束后自动完成提醒事项并清理闹钟
+  - LiveActivityIntent 后台闭环 + 持久化恢复阶段 + 串行操作; Debug 精确账户 / source 指纹与列表白名单
+
 ## [0.7.2] - 2026-10-07
 
 ### Changed
