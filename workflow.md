@@ -17,6 +17,7 @@
 ```bash
 ./scripts/debug.sh [DEVELOPMENT_TEAM]                        # 构建 + 后台重启本 worktree 实例, 输出 pid=<PID>
 ./scripts/debug.sh quit                                      # 退出本 worktree 实例 (删 worktree 前执行)
+./scripts/iphone.sh install <DEVELOPMENT_TEAM> <UDID> [Debug|Release]
 ```
 
 - 使用 peekaboo, 以 debug.sh 输出的 pid 定位本 worktree 实例 (多 worktree 实例并存);
@@ -37,6 +38,7 @@
 
 ```bash
 swiftformat --lint Sources
+swiftformat --lint iphone/Sources
 swiftlint --strict
 ```
 
@@ -49,6 +51,8 @@ swiftlint --strict
 ## 3. 预部署
 
 信赖并执行 `./scripts/install-local.sh [DEVELOPMENT_TEAM]` 脚本（能力完全交由它封装、提供、执行）
+
+iPhone 变更: 带 Team 验证 Debug + Release; 真机验收录入 / 提前结束 / 后台停止 + 延后闭环。
 
 ## 4. 发布
 

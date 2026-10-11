@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>JJDebugSourceFingerprint</key>
+    <string>$(JJ_DEBUG_SOURCE_FINGERPRINT)</string>
+    <key>JJDebugAccountFingerprint</key>
+    <string>$(JJ_DEBUG_ACCOUNT_FINGERPRINT)</string>
+    <key>NSAlarmKitUsageDescription</key>
+    <string>为你录入的事项设置到时响铃、延后和停止操作。</string>
+    <key>NSRemindersFullAccessUsageDescription</key>
+    <string>录入提醒事项，以及在闹钟结束后完成对应事项。</string>
+</dict>
+</plist>

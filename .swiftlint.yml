@@ -1,4 +1,5 @@
 included:
   - Sources
+  - iphone/Sources
 identifier_name:
   excluded: [x, y, id]
